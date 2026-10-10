@@ -1,6 +1,8 @@
 #include <QAction>
 #include <QMenuBar>
+#include <QCheckBox>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QSignalSpy>
 #include <QTableView>
 #include <QtTest>
@@ -13,6 +15,7 @@
 #include "data/SqliteOrganizationRepository.h"
 #include "data/UndoLog.h"
 #include "export/CsvExporter.h"
+#include "ui/AllItemsPanel.h"
 #include "ui/CabinetView.h"
 #include "ui/ItemPanel.h"
 #include "ui/MainWindow.h"
@@ -174,6 +177,46 @@ private slots:
         QCOMPARE(m_drawers->drawersOf(m_groups[1].id).size(), 2);
     }
 
+    void pickingAnItemInAllItemsDarkensItsDrawers()
+    {
+        m_items->add({0, m_left[1].id, "Screw", "", "M3", "", 3, ""});
+        m_items->add({0, m_right[0].id, "Screw", "", "M3", "", 7, ""});
+        emit m_panel->itemsChanged("Add item"); // Refreshes the lists.
+
+        auto *tabs = m_window->findChild<QTabWidget *>();
+        auto *all = m_window->findChild<AllItemsPanel *>();
+        QCOMPARE(tabs->tabText(0), QString("Selected drawer"));
+        QCOMPARE(tabs->tabText(1), QString("All items"));
+        tabs->setCurrentWidget(all);
+
+        auto *table = all->findChild<QTableView *>();
+        QCOMPARE(table->model()->rowCount(), 3); // Resistor and the two Screw entries.
+        const QColor leftBefore = drawerColor(m_left[1].id);
+        const QColor rightBefore = drawerColor(m_right[0].id);
+
+        table->selectRow(1); // The Screw in the left block.
+        QVERIFY(drawerColor(m_left[1].id).lightness() < leftBefore.lightness());
+        QCOMPARE(drawerColor(m_right[0].id).rgb(), rightBefore.rgb());
+
+        all->findChild<QCheckBox *>()->setChecked(true); // Group duplicates.
+        QCOMPARE(table->model()->rowCount(), 2);
+        table->selectRow(1);
+        QVERIFY(drawerColor(m_left[1].id).lightness() < leftBefore.lightness());
+        QVERIFY(drawerColor(m_right[0].id).lightness() < rightBefore.lightness()); // Both.
+
+        // Clicking a drawer on the cabinet clears the emphasis again.
+        selectDrawer(m_left[0]);
+        QCOMPARE(drawerColor(m_left[1].id).rgb(), leftBefore.rgb());
+        QCOMPARE(drawerColor(m_right[0].id).rgb(), rightBefore.rgb());
+
+        // Leaving the tab also drops it.
+        table->selectRow(1);
+        tabs->setCurrentWidget(m_panel);
+        QCOMPARE(drawerColor(m_right[0].id).rgb(), rightBefore.rgb());
+        tabs->setCurrentWidget(all);
+        QVERIFY(drawerColor(m_right[0].id).lightness() < rightBefore.lightness()); // Back.
+    }
+
     void selectAllSelectsEveryGroupWhenTheCabinetHasTheFocus()
     {
         action("Select all")->trigger();
@@ -211,6 +254,12 @@ private:
                 return g.posY;
         }
         return -1;
+    }
+
+    QColor drawerColor(int drawerId)
+    {
+        const QRect r = m_view->drawerRect(drawerId);
+        return m_view->grab().toImage().pixelColor(r.left() + 8, r.bottom() - 14);
     }
 
     QTableView *panelTable() { return m_panel->findChild<QTableView *>(); }
