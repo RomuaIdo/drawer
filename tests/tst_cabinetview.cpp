@@ -116,14 +116,14 @@ private slots:
         QVERIFY(m_view->selectedGroups().isEmpty());
     }
 
-    void rightButtonBandSelectsToo()
+    void rightButtonDoesNotSelect()
     {
         mouseEvent(m_view.get(), QEvent::MouseButtonPress, QPoint(700, 150), Qt::RightButton,
                    Qt::RightButton);
         mouseEvent(m_view.get(), QEvent::MouseMove, QPoint(20, 20), Qt::NoButton, Qt::RightButton);
         mouseEvent(m_view.get(), QEvent::MouseButtonRelease, QPoint(20, 20), Qt::RightButton,
                    Qt::NoButton);
-        QCOMPARE(m_view->selectedGroups(), (QSet<int>{1, 2}));
+        QVERIFY(m_view->selectedGroups().isEmpty());
     }
 
     void bandIsRepaintedOnEveryMove()
@@ -145,14 +145,24 @@ private slots:
                    Qt::NoButton);
     }
 
-    void selectedDrawerOutlineIsNotCoveredByTheBlockOutline()
+    void selectedDrawerOutlineIsNotCoveredAndFollowsTheDrawerColor()
     {
-        // The first column sits right under the block outline; the blue line must stay on top.
-        m_view->setSelectedDrawer(100 + 100); // Block 2, first drawer.
+        // The first column sits right under the block outline; the line must stay on top
+        // and be a darker version of the (medium, yellow) drawer color.
+        m_view->setSelectedDrawer(200); // Block 2, first drawer.
         const QImage image = m_view->grab().toImage();
         const int left = 12 + 4 * 72 + 2; // Left edge of the padded cell.
-        const QColor edge = image.pixelColor(left, 12 + 26);
-        QVERIFY2(edge.blue() > 200 && edge.red() < 80, qPrintable(edge.name()));
+        QCOMPARE(image.pixelColor(left, 12 + 26).rgb(), QColor(0xff, 0xe0, 0x82).darker(200).rgb());
+    }
+
+    void selectedBlockOutlineIsNotCoveredByANeighbor()
+    {
+        // Blocks 1 and 2 touch; block 2 comes later in the list and has its own outline.
+        m_view->setLayouts({makeLayout(1, 0, 0, 2, 2), makeLayout(2, 2, 0, 2, 2)});
+        click(cellCenter(0, 0));
+        const QImage image = m_view->grab().toImage();
+        const QColor highlight = m_view->palette().color(QPalette::Highlight);
+        QCOMPARE(image.pixelColor(12 + 2 * 72, 12 + 52 + 26), highlight); // Shared edge.
     }
 
     void groupColorOverridesTheSizeColor()
