@@ -47,9 +47,11 @@ GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree,
     const bool editing = group.id != 0;
     setWindowTitle(editing ? tr("Edit drawer group") : tr("New drawer group"));
 
-    m_rows->setEnabled(!editing);
-    m_cols->setEnabled(!editing);
-    m_size->setToolTip(tr("Size applied to every drawer created in this group"));
+    m_size->setToolTip(tr("Size applied to drawers created from now on"));
+    if (editing) {
+        m_rows->setToolTip(tr("Changing the size adds or removes drawers; neighbors make room"));
+        m_cols->setToolTip(m_rows->toolTip());
+    }
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     auto *form = new QFormLayout(this);

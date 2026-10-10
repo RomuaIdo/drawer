@@ -27,4 +27,12 @@ Position suggestPosition(const QList<DrawerGroup> &groups, int rows, int cols);
 // With `snap` the result lands on whole cells; it never goes above or left of the origin.
 Position dragTarget(Position start, double dx, double dy, bool snap);
 
+// Groups that must move so that `resized` (already carrying its new size) overlaps nothing.
+// Neighbors are pushed right or down, whichever is closer, and the push cascades to
+// whatever they bump into. `oldRows`/`oldCols` give the extent before resizing, which
+// tells whether a neighbor lies beyond the right or the bottom edge. Only changed
+// groups are returned; the resized group itself never moves.
+QList<DrawerGroup> displacedByResize(const QList<DrawerGroup> &groups, const DrawerGroup &resized,
+                                     int oldRows, int oldCols);
+
 } // namespace Layout

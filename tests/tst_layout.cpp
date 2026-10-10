@@ -95,6 +95,73 @@ private slots:
         QVERIFY(qFuzzyCompare(pos.y, 0.8));
     }
 
+    void growingPushesRightNeighbor()
+    {
+        DrawerGroup resized = group(1, 0, 0, 2, 2);
+        const QList<DrawerGroup> all = {resized, group(2, 2, 0, 2, 2)};
+        resized.cols = 4; // 2x2 -> 2x4
+        const auto moved = Layout::displacedByResize(all, resized, 2, 2);
+        QCOMPARE(moved.size(), 1);
+        QCOMPARE(moved[0].id, 2);
+        QCOMPARE(moved[0].posX, 4.0);
+        QCOMPARE(moved[0].posY, 0.0);
+    }
+
+    void growingPushesBottomNeighborDown()
+    {
+        DrawerGroup resized = group(1, 0, 0, 2, 2);
+        const QList<DrawerGroup> all = {resized, group(2, 0, 2, 2, 2)};
+        resized.rows = 5;
+        const auto moved = Layout::displacedByResize(all, resized, 2, 2);
+        QCOMPARE(moved.size(), 1);
+        QCOMPARE(moved[0].posY, 5.0);
+        QCOMPARE(moved[0].posX, 0.0);
+    }
+
+    void pushCascadesAndIgnoresUnaffectedGroups()
+    {
+        DrawerGroup resized = group(1, 0, 0, 2, 2);
+        // 2 sits right of the block, 3 right of 2, 4 far away below.
+        const QList<DrawerGroup> all = {resized, group(2, 2, 0, 2, 2), group(3, 4, 0, 2, 2),
+                                        group(4, 0, 10, 2, 2)};
+        resized.cols = 3;
+        const auto moved = Layout::displacedByResize(all, resized, 2, 2);
+        QCOMPARE(moved.size(), 2);
+        for (const DrawerGroup &g : moved) {
+            if (g.id == 2) QCOMPARE(g.posX, 3.0);
+            if (g.id == 3) QCOMPARE(g.posX, 5.0);
+        }
+    }
+
+    void resultNeverOverlaps()
+    {
+        DrawerGroup resized = group(1, 0, 0, 2, 2);
+        QList<DrawerGroup> all = {resized, group(2, 2, 0, 2, 2), group(3, 0, 2, 2, 2),
+                                  group(4, 2, 2, 2, 2)};
+        resized.rows = 5;
+        resized.cols = 5;
+        const auto moved = Layout::displacedByResize(all, resized, 2, 2);
+        for (const DrawerGroup &m : moved) {
+            for (DrawerGroup &g : all) {
+                if (g.id == m.id)
+                    g = m;
+            }
+        }
+        all[0] = resized;
+        for (int i = 0; i < all.size(); ++i) {
+            for (int j = i + 1; j < all.size(); ++j)
+                QVERIFY2(!Layout::overlaps(all[i], all[j]), qPrintable(QString("%1/%2").arg(i).arg(j)));
+        }
+    }
+
+    void shrinkingMovesNothing()
+    {
+        DrawerGroup resized = group(1, 0, 0, 4, 4);
+        const QList<DrawerGroup> all = {resized, group(2, 4, 0, 2, 2)};
+        resized.cols = 2;
+        QVERIFY(Layout::displacedByResize(all, resized, 4, 4).isEmpty());
+    }
+
     void fractionalPositionsOverlap()
     {
         DrawerGroup a = group(1, 0, 0, 2, 2);

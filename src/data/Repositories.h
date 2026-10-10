@@ -24,8 +24,14 @@ public:
     virtual QList<DrawerGroup> groupsOf(int cabinetId) const = 0;
     // Creates the group and one drawer per cell, using the default size.
     virtual DrawerGroup addGroup(DrawerGroup group) = 0;
-    // Name, position and default size only; the dimensions are fixed once created.
+    // Name, position and default size only; use resizeGroup to change the dimensions.
     virtual void updateGroup(const DrawerGroup &group) = 0;
+    // Applies the group's new rows/cols: new cells get drawers (default size), cells that
+    // no longer exist lose their drawers and items. `displaced` blocks (only their
+    // position is used) are moved in the same transaction.
+    virtual void resizeGroup(const DrawerGroup &group, const QList<DrawerGroup> &displaced) = 0;
+    // Items that resizing the group to rows x cols would delete.
+    virtual int itemsLostByResize(int groupId, int rows, int cols) const = 0;
     virtual void removeGroup(int id) = 0;
     virtual QList<Drawer> drawersOf(int groupId) const = 0;
     virtual void updateDrawer(const Drawer &drawer) = 0;

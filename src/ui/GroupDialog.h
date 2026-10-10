@@ -11,7 +11,7 @@ class QDoubleSpinBox;
 class QSpinBox;
 class SizeComboBox;
 
-// Creates or edits a drawer group. Dimensions are fixed once the group exists.
+// Creates or edits a drawer group, including its number of rows and columns.
 class GroupDialog : public QDialog
 {
     Q_OBJECT
