@@ -13,6 +13,8 @@ public:
     explicit ColorBandStrip(QWidget *parent = nullptr);
 
     void setBands(const QList<ResistorCode::Color> &bands);
+    void setType(ResistorCode::ResistorType type);
+    ResistorCode::ResistorType type() const { return m_type; }
     QSize sizeHint() const override { return {kDesignWidth, kDesignHeight}; }
 
     static QColor qcolor(ResistorCode::Color color);
@@ -26,4 +28,5 @@ protected:
 
 private:
     QList<ResistorCode::Color> m_bands;
+    ResistorCode::ResistorType m_type = ResistorCode::ResistorType::CarbonFilm;
 };

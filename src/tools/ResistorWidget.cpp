@@ -41,6 +41,7 @@ void fillColors(QComboBox *combo, const QList<Color> &colors, bool showTolerance
 ResistorWidget::ResistorWidget(QWidget *parent)
     : QWidget(parent)
     , m_bandCount(new QComboBox)
+    , m_type(new QComboBox)
     , m_selectorsHost(new QWidget)
     , m_strip(new ColorBandStrip)
     , m_result(makeResultLabel())
@@ -51,6 +52,10 @@ ResistorWidget::ResistorWidget(QWidget *parent)
     for (int bands : {4, 5, 6})
         m_bandCount->addItem(tr("%1 bands").arg(bands), bands);
 
+    for (ResistorType type : {ResistorType::CarbonFilm, ResistorType::MetalFilm})
+        m_type->addItem(name(type), int(type));
+    m_type->setToolTip(tr("Metal film resistors usually have five bands and 1% tolerance"));
+
     m_valueInput->setPlaceholderText(tr("e.g. 4.7k, 4k7, 330"));
     for (Color c : toleranceColors())
         m_toleranceInput->addItem(QString("±%1%").arg(*toleranceOf(c)), int(c));
@@ -59,6 +64,7 @@ ResistorWidget::ResistorWidget(QWidget *parent)
     auto *decodeBox = new QGroupBox(tr("Bands to value"));
     auto *decodeLayout = new QVBoxLayout(decodeBox);
     auto *countRow = new QFormLayout;
+    countRow->addRow(tr("Type"), m_type);
     countRow->addRow(tr("Bands"), m_bandCount);
     decodeLayout->addLayout(countRow);
     decodeLayout->addWidget(m_selectorsHost);
@@ -77,6 +83,7 @@ ResistorWidget::ResistorWidget(QWidget *parent)
     layout->addStretch();
 
     connect(m_bandCount, &QComboBox::currentIndexChanged, this, &ResistorWidget::rebuildBandSelectors);
+    connect(m_type, &QComboBox::currentIndexChanged, this, &ResistorWidget::onTypeChanged);
     connect(m_valueInput, &QLineEdit::textChanged, this, &ResistorWidget::encodeValue);
     connect(m_toleranceInput, &QComboBox::currentIndexChanged, this, &ResistorWidget::encodeValue);
 
@@ -160,6 +167,27 @@ bool ResistorWidget::applyValue(const Value &value)
     m_applyingBands = false;
     decodeBands();
     return true;
+}
+
+// Metal film: drawn with its blue coating, and set up the way such parts usually come, with
+// five bands and 1% tolerance, keeping the value.
+void ResistorWidget::onTypeChanged()
+{
+    const auto type = static_cast<ResistorType>(m_type->currentData().toInt());
+    m_strip->setType(type);
+    if (type != ResistorType::MetalFilm)
+        return;
+
+    if (m_bandCount->currentData().toInt() == 4)
+        m_bandCount->setCurrentIndex(m_bandCount->findData(5)); // Carries the value over.
+    m_toleranceInput->setCurrentIndex(m_toleranceInput->findData(int(Color::Brown)));
+
+    // Without a typed value the tolerance band still has to follow.
+    if (const auto value = currentValue(); value && value->tolerancePercent >= 5) {
+        Value precise = *value;
+        precise.tolerancePercent = 1;
+        applyValue(precise);
+    }
 }
 
 // A hand-picked band makes the typed value obsolete.

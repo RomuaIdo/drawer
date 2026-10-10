@@ -16,6 +16,11 @@ struct Resistance {
     std::optional<int> tempcoPpm; // Only present on 6-band resistors.
 };
 
+// Construction of the resistor; it changes how the part looks, not how bands are read.
+enum class ResistorType { CarbonFilm, MetalFilm };
+
+QString name(ResistorType type);
+
 // Valid band counts are 4 (2 digits), 5 and 6 (3 digits).
 bool isValidBandCount(int bands);
 

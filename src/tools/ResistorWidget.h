@@ -25,6 +25,7 @@ private:
 
     void rebuildBandSelectors();
     void onBandEdited();
+    void onTypeChanged();
     void decodeBands();
     void encodeValue();
     // The value to keep when the band count changes: the typed one, else what the bands say.
@@ -33,6 +34,7 @@ private:
     bool applyValue(const Value &value);
 
     QComboBox *m_bandCount;
+    QComboBox *m_type;
     QWidget *m_selectorsHost;
     QList<QComboBox *> m_selectors;
     ColorBandStrip *m_strip;
