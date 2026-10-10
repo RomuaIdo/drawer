@@ -47,10 +47,32 @@ struct Item {
     QString package;
     int quantity = 0;
     QString notes;
-    std::optional<int> minStock; // Alert threshold; unset means no alert.
+    // Alert threshold, shared by every entry of the same item in the cabinet.
+    std::optional<int> minStock;
+    // Quantity of this item summed over all its drawers in the cabinet; set when read from
+    // the database, -1 for items built in code.
+    int totalQuantity = -1;
 
-    // True once the quantity reaches or drops below the minimum stock.
-    bool isLowStock() const { return minStock && quantity <= *minStock; }
+    int stockTotal() const { return totalQuantity >= 0 ? totalQuantity : quantity; }
+    // True once the item's total reaches or drops below the minimum stock.
+    bool isLowStock() const { return minStock && stockTotal() <= *minStock; }
+};
+
+// One place where an item is stored.
+struct ItemLocation {
+    int itemId = 0;
+    int drawerId = 0;
+    QString group;
+    QString drawerLabel;
+    int quantity = 0;
+};
+
+// An item together with where it is, for listing a whole cabinet.
+struct ItemEntry {
+    Item item;
+    QString identity; // Equal for entries of the same item (name, category, value, package).
+    QString group;
+    QString drawerLabel;
 };
 
 // One flattened line of the cabinet mapping; empty drawers have no item fields.

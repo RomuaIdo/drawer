@@ -2,6 +2,7 @@
 
 #include <QAbstractTableModel>
 #include <QStringList>
+#include <functional>
 
 #include "core/Models.h"
 
@@ -11,6 +12,10 @@ class ItemTableModel : public QAbstractTableModel
 
 public:
     using QAbstractTableModel::QAbstractTableModel;
+    using LocationProvider = std::function<QList<ItemLocation>(int itemId)>;
+
+    // Where an item is stored, for the tooltip of the quantity; without it only totals show.
+    void setLocationProvider(LocationProvider provider) { m_locations = std::move(provider); }
 
     void setItems(const QList<Item> &items);
     const Item &itemAt(int row) const { return m_items.at(row); }
@@ -26,5 +31,8 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
 private:
+    QString quantityTooltip(const Item &item) const;
+
     QList<Item> m_items;
+    LocationProvider m_locations;
 };

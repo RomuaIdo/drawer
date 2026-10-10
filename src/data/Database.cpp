@@ -52,6 +52,22 @@ const QStringList kMigrations = {
     )",
     "ALTER TABLE drawer_groups ADD COLUMN color TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE items ADD COLUMN min_stock INTEGER", // NULL: no alert.
+    // Entries of one item share name, category, value and package (ignoring case and
+    // surrounding spaces); stock is counted per cabinet.
+    R"(
+    CREATE VIEW item_stock AS
+    SELECT i.id AS item_id,
+           g.cabinet_id AS cabinet_id,
+           lower(trim(i.name)) || char(31) || lower(trim(i.category)) || char(31) ||
+               lower(trim(i.value)) || char(31) || lower(trim(i.package)) AS identity,
+           SUM(i.quantity) OVER w AS total,
+           MAX(i.min_stock) OVER w AS min_stock
+    FROM items i
+    JOIN drawers d ON d.id = i.drawer_id
+    JOIN drawer_groups g ON g.id = d.group_id
+    WINDOW w AS (PARTITION BY g.cabinet_id, lower(trim(i.name)), lower(trim(i.category)),
+                 lower(trim(i.value)), lower(trim(i.package)))
+    )",
 };
 
 } // namespace

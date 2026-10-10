@@ -34,6 +34,7 @@ ItemDialog::ItemDialog(const Item &item, const QList<DrawerChoice> &drawers, QWi
     m_alert->setChecked(item.minStock.has_value());
     m_minStock->setEnabled(item.minStock.has_value());
     connect(m_alert, &QCheckBox::toggled, m_minStock, &QWidget::setEnabled);
+    m_alert->setToolTip(tr("Applies to the item as a whole: its total over every drawer of the cabinet."));
     m_value->setPlaceholderText(tr("e.g. 4.7k, 100nF"));
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

@@ -155,6 +155,41 @@ private slots:
         QVERIFY(table->selectionModel()->hasSelection()); // Selection survives the reload.
     }
 
+    void quantityTooltipListsTheDrawersHoldingTheItem()
+    {
+        auto locations = [](int) {
+            QList<ItemLocation> list;
+            list.append({1, 10, "Resistors", "R1C1", 4}); // The entry itself.
+            for (int i = 0; i < 7; ++i)
+                list.append({2 + i, 20 + i, "Hardware", QString("R%1C1").arg(i + 1), 1});
+            return list;
+        };
+        ItemTableModel model;
+        model.setLocationProvider(locations);
+        Item item{1, 10, "Resistor", "", "", "", 4, "", 20};
+        item.totalQuantity = 11;
+        model.setItems({item});
+
+        const QString tip = model.data(model.index(0, 4), Qt::ToolTipRole).toString();
+        const QStringList lines = tip.split('\n');
+        QCOMPARE(lines[0], QString("4/11"));
+        QCOMPARE(lines[1], QString("Resistors/R1C1 (4)")); // The current drawer first.
+        QCOMPARE(lines[2], QString("Hardware/R1C1 (1)"));
+        QCOMPARE(lines[6], QString("Hardware/R5C1 (1)")); // Five other drawers at most...
+        QCOMPARE(lines[7], QString("+2 more")); // ...then a count of the rest.
+        QVERIFY(tip.contains("Low stock")); // 11 <= 20.
+        QCOMPARE(model.data(model.index(0, 4), Qt::DisplayRole).toInt(), 4); // Just the quantity.
+    }
+
+    void quantityTooltipIsEmptyForAnItemInOneDrawer()
+    {
+        ItemTableModel model;
+        Item item{1, 10, "Resistor", "", "", "", 4, ""};
+        item.totalQuantity = 4;
+        model.setItems({item});
+        QVERIFY(model.data(model.index(0, 4), Qt::ToolTipRole).isNull());
+    }
+
     void draggingItemRowsProducesTheItemMimeData()
     {
         ItemTableModel model;
