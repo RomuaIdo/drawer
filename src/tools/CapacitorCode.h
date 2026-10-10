@@ -19,6 +19,22 @@ std::optional<Capacitance> decode(const QString &marking);
 // Encodes to a 3-digit code (e.g. 100 nF -> "104"); nullopt if not representable.
 std::optional<QString> encode(double picofarads);
 
+// The physical kinds the tool can draw.
+enum class CapacitorType { CeramicDisc, CeramicChip, Film, Electrolytic, Tantalum };
+
+QString name(CapacitorType type);
+
+// Usual construction for a capacitance: ceramic disc up to 100 nF, film up to 1 uF,
+// electrolytic above. Chip and tantalum are only drawn when chosen by hand.
+CapacitorType defaultTypeFor(double picofarads);
+
+// What was typed: a marking such as "104" or "104K", or a value such as "100n" or "4u7".
+struct Reading {
+    Capacitance capacitance;
+    QString marking; // Three-digit marking (with the tolerance letter if given); empty if none fits.
+};
+std::optional<Reading> read(const QString &input);
+
 // Letter -> tolerance, nullopt for unknown letters.
 std::optional<double> tolerancePercentOf(QChar letter);
 

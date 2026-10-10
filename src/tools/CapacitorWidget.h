@@ -2,10 +2,13 @@
 
 #include <QWidget>
 
+class CapacitorStrip;
+class QComboBox;
 class QLabel;
 class QLineEdit;
 
-// Ceramic capacitor marking calculator: code to value and value to code.
+// Capacitor calculator: type a marking (104, 104K) or a value (100n, 4u7) and get the other
+// form, the tolerance and a drawing of the usual kind of capacitor for that value.
 class CapacitorWidget : public QWidget
 {
     Q_OBJECT
@@ -14,11 +17,10 @@ public:
     explicit CapacitorWidget(QWidget *parent = nullptr);
 
 private:
-    void decodeMarking();
-    void encodeValue();
+    void refresh();
 
-    QLineEdit *m_markingInput;
-    QLabel *m_decoded;
-    QLineEdit *m_valueInput;
-    QLabel *m_encoded;
+    CapacitorStrip *m_strip;
+    QLineEdit *m_input;
+    QComboBox *m_type;
+    QLabel *m_result;
 };
