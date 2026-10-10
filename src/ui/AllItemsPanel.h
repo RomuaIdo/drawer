@@ -17,6 +17,8 @@ public:
     explicit AllItemsPanel(IItemRepository &items, QWidget *parent = nullptr);
 
     void setCabinet(int cabinetId);
+    // Only items of this category are listed; empty lists everything.
+    void setCategoryFilter(const QString &category);
     void reload();
     // Drawers of the selected row; empty when nothing is selected.
     QList<int> selectedDrawerIds() const;
@@ -34,4 +36,5 @@ private:
     QTableView *m_table;
     QCheckBox *m_group;
     int m_cabinetId = 0;
+    QString m_category;
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QList>
+#include <QStringList>
 
 #include "core/Models.h"
 #include "core/Organization.h"
@@ -52,6 +53,10 @@ public:
     virtual Item add(Item item) = 0;
     virtual void update(const Item &item) = 0; // Also used to move an item between drawers.
     virtual void remove(int id) = 0;
+    // Every item in the database.
+    virtual QList<Item> all() const = 0;
+    // Distinct non-empty categories, sorted, ignoring case and surrounding spaces.
+    virtual QStringList categories() const = 0;
     // Items whose total across the cabinet is at or below their minimum stock.
     virtual QList<Item> lowStock() const = 0;
     // Where the item with this id is stored, the item's own entry first, then the rest in

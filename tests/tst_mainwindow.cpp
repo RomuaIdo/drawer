@@ -1,6 +1,8 @@
 #include <QAction>
 #include <QMenuBar>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QSignalSpy>
@@ -215,6 +217,64 @@ private slots:
         QCOMPARE(drawerColor(m_right[0].id).rgb(), rightBefore.rgb());
         tabs->setCurrentWidget(all);
         QVERIFY(drawerColor(m_right[0].id).lightness() < rightBefore.lightness()); // Back.
+    }
+
+    void searchingAValueDarkensTheDrawersHoldingIt()
+    {
+        m_items->add({0, m_left[1].id, "Cap A", "Capacitor", "1u", "", 2, ""});
+        m_items->add({0, m_right[0].id, "Cap B", "Capacitor", "1000nF", "", 2, ""});
+        m_items->add({0, m_right[1].id, "Cap C", "Capacitor", "100n", "", 2, ""});
+        emit m_panel->itemsChanged("Add item");
+
+        const QColor leftBefore = drawerColor(m_left[1].id);
+        const QColor rightBefore = drawerColor(m_right[0].id);
+        const QColor otherBefore = drawerColor(m_right[1].id);
+
+        auto *search = m_window->findChild<QLineEdit *>();
+        search->setText("1uF");
+        QVERIFY(drawerColor(m_left[1].id).lightness() < leftBefore.lightness());
+        QVERIFY(drawerColor(m_right[0].id).lightness() < rightBefore.lightness());
+        QCOMPARE(drawerColor(m_right[1].id).rgb(), otherBefore.rgb()); // 100n is another value.
+
+        search->clear();
+        QCOMPARE(drawerColor(m_left[1].id).rgb(), leftBefore.rgb());
+    }
+
+    void theCategoryFilterNarrowsTheHighlightAndTheAllItemsList()
+    {
+        m_items->add({0, m_left[1].id, "Cap A", "Capacitor", "1u", "", 2, ""});
+        m_items->add({0, m_right[0].id, "Res A", "Resistor", "1u", "", 2, ""}); // Same value.
+        emit m_panel->itemsChanged("Add item");
+
+        auto *category = m_window->findChild<QComboBox *>(QString(), Qt::FindChildrenRecursively);
+        QComboBox *filter = nullptr;
+        for (QComboBox *combo : m_window->findChildren<QComboBox *>()) {
+            if (combo->itemText(0) == "All categories")
+                filter = combo;
+        }
+        Q_UNUSED(category)
+        QVERIFY(filter);
+        QStringList entries;
+        for (int i = 0; i < filter->count(); ++i)
+            entries << filter->itemText(i);
+        QCOMPARE(entries, (QStringList{"All categories", "Capacitor", "Resistor"}));
+
+        const QColor leftBefore = drawerColor(m_left[1].id);
+        const QColor rightBefore = drawerColor(m_right[0].id);
+        auto *table = m_window->findChild<AllItemsPanel *>()->findChild<QTableView *>();
+        QCOMPARE(table->model()->rowCount(), 3); // Resistor from setup, plus the two new ones.
+
+        filter->setCurrentIndex(filter->findText("Capacitor")); // No text: the whole category.
+        QVERIFY(drawerColor(m_left[1].id).lightness() < leftBefore.lightness());
+        QCOMPARE(drawerColor(m_right[0].id).rgb(), rightBefore.rgb());
+        QCOMPARE(table->model()->rowCount(), 1);
+
+        m_window->findChild<QLineEdit *>()->setText("1u"); // Both items match, the category cuts one.
+        QVERIFY(drawerColor(m_left[1].id).lightness() < leftBefore.lightness());
+        QCOMPARE(drawerColor(m_right[0].id).rgb(), rightBefore.rgb());
+
+        filter->setCurrentIndex(0);
+        QCOMPARE(table->model()->rowCount(), 3);
     }
 
     void selectAllSelectsEveryGroupWhenTheCabinetHasTheFocus()

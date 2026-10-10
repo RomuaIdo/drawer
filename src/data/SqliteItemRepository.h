@@ -14,6 +14,8 @@ public:
     Item add(Item item) override;
     void update(const Item &item) override;
     void remove(int id) override;
+    QList<Item> all() const override;
+    QStringList categories() const override;
     QList<Item> lowStock() const override;
     QList<ItemLocation> locationsOf(int itemId) const override;
     QList<ItemEntry> inCabinet(int cabinetId) const override;
