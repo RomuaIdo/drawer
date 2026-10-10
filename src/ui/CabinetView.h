@@ -56,7 +56,7 @@ private:
     QRect cellRect(const DrawerGroup &group, int row, int col) const;
     QRect groupRect(const DrawerGroup &group) const;
     Hit hitTest(const QPoint &pos) const;
-    void drawGroupTag(QPainter &p, const DrawerGroup &group) const;
+    void drawGroupTag(QPainter &p, const DrawerGroup &group, const QList<Drawer> &drawers) const;
     void updateDrag(const QPoint &pos);
     void cancelDrag();
     QList<DrawerGroup> otherGroups(int excludedId) const;

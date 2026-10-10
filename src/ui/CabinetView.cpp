@@ -15,6 +15,7 @@ constexpr int kCellWidth = 72;
 constexpr int kCellHeight = 52;
 constexpr int kMargin = 12;
 constexpr int kCellPadding = 2;
+constexpr int kTagDarkening = 190; // Percent; 100 keeps the drawer color.
 
 QColor sizeColor(DrawerSize size)
 {
@@ -117,7 +118,8 @@ bool CabinetView::event(QEvent *event)
 }
 
 // Name tag in the top-left corner of a block, so the group is visible without any click.
-void CabinetView::drawGroupTag(QPainter &p, const DrawerGroup &group) const
+void CabinetView::drawGroupTag(QPainter &p, const DrawerGroup &group,
+                               const QList<Drawer> &drawers) const
 {
     p.save();
     QFont font = p.font();
@@ -131,8 +133,10 @@ void CabinetView::drawGroupTag(QPainter &p, const DrawerGroup &group) const
     const QRect tag(block.left() + 1, block.top() + 1, metrics.horizontalAdvance(text) + 8,
                     metrics.height() + 2);
 
+    // Same hue as the drawer under the tag, only darker.
+    const DrawerSize size = drawers.isEmpty() ? group.defaultSize : drawers.first().size;
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0x30, 0x30, 0x38));
+    p.setBrush(sizeColor(size).darker(kTagDarkening));
     p.drawRoundedRect(tag, 3, 3);
     p.setPen(Qt::white);
     p.drawText(tag, Qt::AlignCenter, text);
@@ -172,7 +176,7 @@ void CabinetView::paintEvent(QPaintEvent *)
                        sizeLetter(d.size));
         }
         // Block outline makes grouped drawers easy to tell apart.
-        drawGroupTag(p, group);
+        drawGroupTag(p, group, l.drawers);
 
         // Dragged blocks are outlined red when the drop would overlap another block.
         const QColor outline = beingDragged && !m_dragValid ? QColor(0xd3, 0x20, 0x20) : Qt::black;
