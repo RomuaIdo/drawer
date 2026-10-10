@@ -1,4 +1,5 @@
 #include <QComboBox>
+#include <QLineEdit>
 #include <QtTest>
 
 #include "data/Database.h"
@@ -10,6 +11,8 @@
 #include "export/CsvExporter.h"
 #include "tools/CapacitorStrip.h"
 #include "tools/CapacitorWidget.h"
+#include "tools/FormulaWidgets.h"
+#include "tools/SmdStrip.h"
 #include "tools/ToolRegistry.h"
 #include "tools/ToolsDialog.h"
 #include "ui/MainWindow.h"
@@ -38,6 +41,19 @@ private slots:
         widget.show();
         QVERIFY(widget.findChild<CapacitorStrip *>());
         QVERIFY(!widget.grab().isNull()); // Painting does not crash.
+    }
+
+    void smdToolDrawsMarking()
+    {
+        SmdWidget widget;
+        widget.show();
+        auto *strip = widget.findChild<SmdStrip *>();
+        QVERIFY(strip);
+        widget.findChild<QLineEdit *>()->setText("01c");
+        QCOMPARE(strip->marking(), QString("01C"));
+        widget.findChild<QLineEdit *>()->setText("zz9");
+        QVERIFY(strip->marking().isEmpty());
+        QVERIFY(!widget.grab().isNull());
     }
 
     void toolsDialogBuildsAllTools()
