@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QList>
+#include <QPair>
+#include <optional>
 #include <QStringList>
 
 #include "core/Models.h"
@@ -50,9 +52,14 @@ public:
     virtual QList<Item> inDrawer(int drawerId) const = 0;
     // Case-insensitive match on name, category, value, package and notes.
     virtual QList<Item> search(const QString &text) const = 0;
+    virtual std::optional<Item> find(int id) const = 0;
     virtual Item add(Item item) = 0;
     virtual void update(const Item &item) = 0; // Also used to move an item between drawers.
     virtual void remove(int id) = 0;
+    // Edits every entry of one item at once: `common` supplies name, category, value, package,
+    // notes and minimum stock for all of them, `quantities` the quantity of each (item id,
+    // quantity). Atomic.
+    virtual void updateEntries(const Item &common, const QList<QPair<int, int>> &quantities) = 0;
     // Every item in the database.
     virtual QList<Item> all() const = 0;
     // Distinct non-empty categories, sorted, ignoring case and surrounding spaces.

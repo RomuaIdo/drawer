@@ -11,9 +11,11 @@ public:
 
     QList<Item> inDrawer(int drawerId) const override;
     QList<Item> search(const QString &text) const override;
+    std::optional<Item> find(int id) const override;
     Item add(Item item) override;
     void update(const Item &item) override;
     void remove(int id) override;
+    void updateEntries(const Item &common, const QList<QPair<int, int>> &quantities) override;
     QList<Item> all() const override;
     QStringList categories() const override;
     QList<Item> lowStock() const override;

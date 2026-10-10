@@ -31,7 +31,7 @@ void AllItemsModel::rebuild()
         for (const ItemEntry &e : m_entries)
             m_rows.append({e.item, e.item.quantity,
                            {{e.item.drawerId, e.group, e.drawerLabel, e.item.quantity}},
-                           e.item.notes});
+                           {e.item.id}, e.item.notes});
         return;
     }
 
@@ -40,10 +40,11 @@ void AllItemsModel::rebuild()
         auto found = rowOfItem.constFind(e.identity);
         if (found == rowOfItem.constEnd()) {
             found = rowOfItem.insert(e.identity, m_rows.size());
-            m_rows.append({e.item, 0, {}, QString()});
+            m_rows.append({e.item, 0, {}, {}, QString()});
         }
         Row &row = m_rows[*found];
         row.quantity += e.item.quantity;
+        row.itemIds.append(e.item.id);
 
         // Several entries in one drawer count as a single place.
         bool merged = false;
@@ -85,6 +86,20 @@ QList<int> AllItemsModel::drawerIdsAt(int row) const
     for (const Place &p : m_rows[row].places)
         ids.append(p.drawerId);
     return ids;
+}
+
+QList<int> AllItemsModel::itemIdsAt(int row) const
+{
+    return row >= 0 && row < m_rows.size() ? m_rows[row].itemIds : QList<int>();
+}
+
+int AllItemsModel::rowOfItem(int itemId) const
+{
+    for (int row = 0; row < m_rows.size(); ++row) {
+        if (m_rows[row].itemIds.contains(itemId))
+            return row;
+    }
+    return -1;
 }
 
 int AllItemsModel::rowCount(const QModelIndex &parent) const

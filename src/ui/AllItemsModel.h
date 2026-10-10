@@ -24,6 +24,10 @@ public:
 
     // Drawers holding the item in this row; the first is where the row's own entry lives.
     QList<int> drawerIdsAt(int row) const;
+    // Ids of the item entries behind the row: one, or every entry of the item when grouped.
+    QList<int> itemIdsAt(int row) const;
+    // The row showing this entry; -1 if none.
+    int rowOfItem(int itemId) const;
 
     int rowCount(const QModelIndex &parent = {}) const override;
     int columnCount(const QModelIndex &parent = {}) const override;
@@ -44,6 +48,7 @@ private:
         Item item;          // The first entry; its stock total covers the whole item.
         int quantity = 0;   // Quantity shown: the entry's own, or the item's total when grouped.
         QList<Place> places;
+        QList<int> itemIds;
         QString notes;
     };
 
