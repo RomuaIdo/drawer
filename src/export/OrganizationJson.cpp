@@ -248,7 +248,7 @@ Organization read(const QByteArray &data)
 
     const QJsonObject root = doc.object();
     if (root.value("format").toString() != kFormat)
-        throw OrganizationFormatError("Not a drawer organization file");
+        throw OrganizationFormatError("Not a drawer database file");
     if (root.value("version").toInt() != kVersion)
         throw OrganizationFormatError(
             QString("Unsupported file version %1").arg(root.value("version").toInt()));

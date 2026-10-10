@@ -98,8 +98,8 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
 void MainWindow::createActions()
 {
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(tr("&Import organization..."), this, &MainWindow::importOrganization);
-    fileMenu->addAction(tr("Export &organization..."), this, &MainWindow::exportOrganization);
+    fileMenu->addAction(tr("&Import database..."), this, &MainWindow::importOrganization);
+    fileMenu->addAction(tr("Export &database..."), this, &MainWindow::exportOrganization);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Export mapping as %1...").arg(m_exporter.name()), QKeySequence(Qt::CTRL | Qt::Key_E), this,
                         &MainWindow::exportMapping);
@@ -209,9 +209,9 @@ void MainWindow::reloadView()
 
 void MainWindow::exportOrganization()
 {
-    QString path = QFileDialog::getSaveFileName(this, tr("Export organization"),
-                                                "drawer-organization.json",
-                                                tr("Drawer organization (*.json)"));
+    QString path = QFileDialog::getSaveFileName(this, tr("Export database"),
+                                                "drawer-database.json",
+                                                tr("Drawer database (*.json)"));
     if (path.isEmpty())
         return;
     if (QFileInfo(path).suffix().isEmpty())
@@ -232,9 +232,9 @@ void MainWindow::exportOrganization()
 
 void MainWindow::importOrganization()
 {
-    ChangeScope scope(*this, tr("Import organization"));
-    const QString path = QFileDialog::getOpenFileName(this, tr("Import organization"), QString(),
-                                                      tr("Drawer organization (*.json)"));
+    ChangeScope scope(*this, tr("Import database"));
+    const QString path = QFileDialog::getOpenFileName(this, tr("Import database"), QString(),
+                                                      tr("Drawer database (*.json)"));
     if (path.isEmpty())
         return;
 
@@ -246,7 +246,7 @@ void MainWindow::importOrganization()
     try {
         const Organization organization = OrganizationJson::read(file.readAll());
         const auto answer = QMessageBox::question(
-            this, tr("Import organization"),
+            this, tr("Import database"),
             tr("Add %n cabinet(s) from this file? Existing cabinets are kept.", "",
                organization.cabinets.size()));
         if (answer != QMessageBox::Yes)
