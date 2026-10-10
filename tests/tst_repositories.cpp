@@ -258,6 +258,106 @@ private slots:
         QCOMPARE(m_items->inDrawer(a.id).first().quantity, 12);
     }
 
+    void minimumStockCountsTheTotalOverAllDrawers()
+    {
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        const Item first = m_items->add({0, a.id, "Resistor 10k", "Passive", "10k", "0603", 4, "", 12});
+        const Item second = m_items->add({0, b.id, "Resistor 10k", "Passive", "10k", "0603", 6, ""});
+
+        // 4 + 6 = 10 <= 12: both entries are flagged, and the minimum set on the first
+        // entry was taken over by the second one.
+        QCOMPARE(m_items->lowStock().size(), 2);
+        const Item other = m_items->inDrawer(b.id).first();
+        QCOMPARE(other.id, second.id);
+        QCOMPARE(*other.minStock, 12);
+        QCOMPARE(other.totalQuantity, 10);
+        QCOMPARE(other.quantity, 6);
+        QVERIFY(other.isLowStock());
+
+        m_items->adjustQuantity({second.id}, +3); // Total 13.
+        QVERIFY(m_items->lowStock().isEmpty());
+        m_items->adjustQuantity({first.id}, -1); // Total 12: at the minimum.
+        QCOMPARE(m_items->lowStock().size(), 2);
+    }
+
+    void minimumStockIsSharedAndCanBeClearedFromAnyDrawer()
+    {
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        m_items->add({0, a.id, "Cap", "", "100nF", "", 1, "", 5});
+        Item copy = m_items->add({0, b.id, " cap ", "", "100NF", "", 1, ""}); // Same item.
+        QCOMPARE(*m_items->inDrawer(b.id).first().minStock, 5);
+
+        copy = m_items->inDrawer(b.id).first();
+        copy.minStock.reset();
+        m_items->update(copy);
+        QVERIFY(!m_items->inDrawer(a.id).first().minStock);
+        QVERIFY(m_items->lowStock().isEmpty());
+
+        copy.minStock = 9;
+        m_items->update(copy);
+        QCOMPARE(*m_items->inDrawer(a.id).first().minStock, 9);
+    }
+
+    void differentItemsAndCabinetsDoNotShareStock()
+    {
+        const Drawer a = singleDrawer();
+        m_items->add({0, a.id, "Cap", "", "100nF", "", 1, "", 5});
+        m_items->add({0, a.id, "Cap", "", "220nF", "", 50, ""}); // Other value: other item.
+        QCOMPARE(m_items->lowStock().size(), 1);
+
+        const int otherCabinet = m_cabinets->add({0, "Second", ""}).id;
+        DrawerGroup g;
+        g.cabinetId = otherCabinet;
+        g.name = "G";
+        const Drawer elsewhere = m_drawers->drawersOf(m_drawers->addGroup(g).id).first();
+        m_items->add({0, elsewhere.id, "Cap", "", "100nF", "", 100, ""});
+        QCOMPARE(m_items->lowStock().size(), 1); // The 100 in another cabinet does not count.
+        QCOMPARE(m_items->inDrawer(a.id)[0].totalQuantity, 1);
+    }
+
+    void locationsListTheItemsOwnDrawerFirst()
+    {
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        const Drawer c = singleDrawer();
+        const Item inA = m_items->add({0, a.id, "Screw", "", "M3", "", 10, ""});
+        const Item inB = m_items->add({0, b.id, "Screw", "", "M3", "", 20, ""});
+        const Item inC = m_items->add({0, c.id, "screw", "", "m3", "", 30, ""});
+        m_items->add({0, a.id, "Screw", "", "M4", "", 99, ""}); // Different item.
+
+        const QList<ItemLocation> fromB = m_items->locationsOf(inB.id);
+        QCOMPARE(fromB.size(), 3);
+        QCOMPARE(fromB[0].drawerId, b.id); // The asking entry first.
+        QCOMPARE(fromB[0].quantity, 20);
+        QCOMPARE(fromB[1].drawerId, a.id); // Then cabinet order.
+        QCOMPARE(fromB[2].drawerId, c.id);
+        QCOMPARE(fromB[0].group, QString("Single"));
+        QCOMPARE(m_items->locationsOf(inA.id)[0].drawerId, a.id);
+        QCOMPARE(m_items->locationsOf(inC.id).first().quantity, 30);
+    }
+
+    void inCabinetListsEveryItemWithItsLocation()
+    {
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        m_items->add({0, a.id, "Zener", "", "", "", 1, ""});
+        m_items->add({0, b.id, "Diode", "", "", "", 2, ""});
+        m_items->add({0, b.id, "diode", "", "", "", 3, ""}); // Same item, same drawer.
+
+        const int cabinet = m_cabinets->all().first().id;
+        const QList<ItemEntry> entries = m_items->inCabinet(cabinet);
+        QCOMPARE(entries.size(), 3);
+        QCOMPARE(entries[0].item.name, QString("Diode")); // Ordered by name, ignoring case.
+        QCOMPARE(entries[0].identity, entries[1].identity);
+        QVERIFY(entries[0].identity != entries[2].identity);
+        QCOMPARE(entries[0].item.totalQuantity, 5);
+        QCOMPARE(entries[0].group, QString("Single"));
+        QCOMPARE(entries[0].drawerLabel, QString("R1C1"));
+        QVERIFY(m_items->inCabinet(9999).isEmpty());
+    }
+
     void removeDrawerLeavesAHoleAndKeepsTheRest()
     {
         const int cab = m_cabinets->add({0, "A", ""}).id;
@@ -349,7 +449,7 @@ private slots:
     {
         QSqlQuery q(m_db->connection());
         QVERIFY(q.exec("PRAGMA user_version") && q.next());
-        QCOMPARE(q.value(0).toInt(), 3);
+        QCOMPARE(q.value(0).toInt(), 4);
     }
 
 private:

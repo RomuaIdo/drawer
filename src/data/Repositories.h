@@ -52,8 +52,13 @@ public:
     virtual Item add(Item item) = 0;
     virtual void update(const Item &item) = 0; // Also used to move an item between drawers.
     virtual void remove(int id) = 0;
-    // Items at or below their minimum stock, across every cabinet.
+    // Items whose total across the cabinet is at or below their minimum stock.
     virtual QList<Item> lowStock() const = 0;
+    // Where the item with this id is stored, the item's own entry first, then the rest in
+    // cabinet order. Includes every entry of the same item in the same cabinet.
+    virtual QList<ItemLocation> locationsOf(int itemId) const = 0;
+    // Every item of a cabinet with its location, ordered by name.
+    virtual QList<ItemEntry> inCabinet(int cabinetId) const = 0;
     // Adds `delta` to each item's quantity, never going below zero.
     virtual void adjustQuantity(const QList<int> &ids, int delta) = 0;
     // Moves the items to another drawer, or adds copies of them there. Both are atomic;

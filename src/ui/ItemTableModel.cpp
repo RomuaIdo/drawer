@@ -9,6 +9,27 @@ namespace {
 enum Column { Name, Category, Value, Package, Quantity, MinStock, Notes, ColumnCount };
 }
 
+// Only items that are stored in more than one place get a location list.
+QString ItemTableModel::quantityTooltip(const Item &item) const
+{
+    constexpr int kMaxOtherDrawers = 5;
+    QStringList lines;
+
+    if (item.stockTotal() != item.quantity && m_locations) {
+        lines << QString("%1/%2").arg(item.quantity).arg(item.stockTotal());
+        const QList<ItemLocation> locations = m_locations(item.id); // This entry comes first.
+        for (int i = 0; i < locations.size() && i <= kMaxOtherDrawers; ++i)
+            lines << QString("%1/%2 (%3)").arg(locations[i].group, locations[i].drawerLabel)
+                         .arg(locations[i].quantity);
+        const int more = locations.size() - 1 - kMaxOtherDrawers;
+        if (more > 0)
+            lines << tr("+%n more", "", more);
+    }
+    if (item.isLowStock())
+        lines << tr("Low stock: %1 in total, minimum %2").arg(item.stockTotal()).arg(*item.minStock);
+    return lines.join('\n');
+}
+
 int ItemTableModel::rowOfItem(int itemId) const
 {
     for (int row = 0; row < m_items.size(); ++row) {
@@ -72,8 +93,12 @@ QVariant ItemTableModel::data(const QModelIndex &index, int role) const
     // Items at or below their minimum stock stand out.
     if (role == Qt::BackgroundRole && item.isLowStock())
         return QColor(0xd3, 0x20, 0x20, 60);
+    if (role == Qt::ToolTipRole && index.column() == Quantity) {
+        const QString text = quantityTooltip(item);
+        return text.isEmpty() ? QVariant() : QVariant(text);
+    }
     if (role == Qt::ToolTipRole && item.isLowStock())
-        return tr("Low stock: %1 left, minimum %2").arg(item.quantity).arg(*item.minStock);
+        return tr("Low stock: %1 in total, minimum %2").arg(item.stockTotal()).arg(*item.minStock);
     if (role != Qt::DisplayRole)
         return {};
     switch (index.column()) {

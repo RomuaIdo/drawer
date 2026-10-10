@@ -6,11 +6,12 @@ QList<MappingRow> SqliteMappingRepository::rows() const
 {
     QSqlQuery q = SqlUtil::exec(m_db,
         "SELECT c.name, g.name, d.row, d.col, d.label, d.size, "
-        "       i.name, i.category, i.value, i.package, i.quantity, i.notes, i.min_stock "
+        "       i.name, i.category, i.value, i.package, i.quantity, i.notes, s.min_stock, s.total "
         "FROM drawers d "
         "JOIN drawer_groups g ON g.id = d.group_id "
         "JOIN cabinets c ON c.id = g.cabinet_id "
         "LEFT JOIN items i ON i.drawer_id = d.id "
+        "LEFT JOIN item_stock s ON s.item_id = i.id "
         "ORDER BY c.name, g.pos_y, g.pos_x, g.id, d.row, d.col, i.name");
 
     QList<MappingRow> result;
@@ -32,7 +33,7 @@ QList<MappingRow> SqliteMappingRepository::rows() const
             r.notes = q.value(11).toString();
             if (!q.value(12).isNull()) {
                 r.minStock = q.value(12).toInt();
-                r.lowStock = r.quantity <= *r.minStock;
+                r.lowStock = q.value(13).toInt() <= *r.minStock; // Total over all drawers.
             }
         }
         result.append(r);

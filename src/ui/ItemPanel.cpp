@@ -24,6 +24,13 @@ ItemPanel::ItemPanel(IItemRepository &items, QWidget *parent)
     , m_decrease(new QPushButton(QString::fromUtf8("\u2212")))
     , m_increase(new QPushButton("+"))
 {
+    m_model->setLocationProvider([this](int itemId) {
+        try {
+            return m_items.locationsOf(itemId);
+        } catch (const DatabaseError &) {
+            return QList<ItemLocation>();
+        }
+    });
     m_table->setModel(m_model);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
