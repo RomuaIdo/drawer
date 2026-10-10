@@ -213,3 +213,27 @@ QStringList SqliteItemRepository::categories() const
     result.sort(Qt::CaseInsensitive);
     return result;
 }
+
+std::optional<Item> SqliteItemRepository::find(int id) const
+{
+    const QList<Item> found = readAll(SqlUtil::exec(m_db, QString(kSelect) + "WHERE i.id = ?", {id}));
+    return found.isEmpty() ? std::nullopt : std::make_optional(found.first());
+}
+
+void SqliteItemRepository::updateEntries(const Item &common,
+                                         const QList<QPair<int, int>> &quantities)
+{
+    if (quantities.isEmpty())
+        return;
+    SqlUtil::Transaction tx(m_db);
+    for (const auto &[id, quantity] : quantities) {
+        SqlUtil::exec(m_db,
+            "UPDATE items SET name = ?, category = ?, value = ?, package = ?, notes = ?, "
+            "quantity = ? WHERE id = ?",
+            {common.name, common.category, common.value, common.package, common.notes, quantity,
+             id});
+    }
+    // After renaming, so that the entries still count as one item.
+    shareMinStock(m_db, quantities.first().first, common.minStock);
+    tx.commit();
+}

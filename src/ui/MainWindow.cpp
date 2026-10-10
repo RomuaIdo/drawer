@@ -71,6 +71,14 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
         selectDrawer(drawer);
     });
     connect(m_allItems, &AllItemsPanel::drawersChosen, this, &MainWindow::showItemDrawers);
+    // Items edited from the "All items" tab: everything else follows, the tab already did.
+    connect(m_allItems, &AllItemsPanel::itemsChanged, this, [this](const QString &what) {
+        recordChange(what);
+        refreshCategories();
+        m_panel->reload();
+        applySearch();
+        updateLowStock();
+    });
     connect(m_allItems, &AllItemsPanel::drawersActivated, this,
             [this] { m_itemTabs->setCurrentWidget(m_panel); });
     // Leaving the "All items" tab drops its emphasis; coming back restores it.
@@ -207,6 +215,7 @@ void MainWindow::reloadView()
     applySearch();
     updateLowStock();
     refreshCategories();
+    m_allItems->setDestinations(m_drawerChoices);
     m_allItems->setCabinet(currentCabinetId());
     m_view->setEmphasizedDrawers({});
 
@@ -305,6 +314,7 @@ void MainWindow::exportMapping()
 void MainWindow::selectDrawer(const Drawer &drawer)
 {
     m_selectedDrawerId = drawer.id;
+    m_allItems->setDefaultDrawer(drawer.id);
     m_view->setSelectedDrawer(drawer.id);
     const QString groupName = m_groupNames.value(drawer.groupId);
     m_panel->setDrawer(drawer, groupName, m_drawerChoices);
