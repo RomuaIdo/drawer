@@ -27,6 +27,10 @@ public:
     void setHighlightedDrawers(const QSet<int> &drawerIds);
     // Drawers holding items at or below their minimum stock get a warning badge.
     void setLowStockDrawers(const QSet<int> &drawerIds);
+    // Drawers shown with a darker fill, e.g. where the item picked in a list is stored.
+    void setEmphasizedDrawers(const QSet<int> &drawerIds);
+    // Bounds of a drawer in widget coordinates; null when it is not shown.
+    QRect drawerRect(int drawerId) const;
     QSize sizeHint() const override;
 
     // Free mode drops the grid snapping while dragging blocks.
@@ -83,6 +87,7 @@ private:
     int m_selectedDrawerId = 0;
     QSet<int> m_highlighted;
     QSet<int> m_lowStock;
+    QSet<int> m_emphasized;
     int m_dropDrawerId = 0; // Drawer under an item being dragged over the view.
     QSet<int> m_selectedGroups;
     bool m_freeMove = false;

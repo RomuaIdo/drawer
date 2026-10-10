@@ -23,6 +23,7 @@ constexpr int kMargin = 12;
 constexpr int kCellPadding = 2;
 constexpr int kTagDarkening = 190; // Percent; 100 keeps the drawer color.
 constexpr int kSelectionDarkening = 200;
+constexpr int kEmphasisDarkening = 140;
 
 QColor sizeColor(DrawerSize size)
 {
@@ -77,6 +78,25 @@ void CabinetView::setSelectedDrawer(int drawerId)
 {
     m_selectedDrawerId = drawerId;
     update();
+}
+
+void CabinetView::setEmphasizedDrawers(const QSet<int> &drawerIds)
+{
+    if (drawerIds == m_emphasized)
+        return;
+    m_emphasized = drawerIds;
+    update();
+}
+
+QRect CabinetView::drawerRect(int drawerId) const
+{
+    for (const GroupLayout &l : m_layouts) {
+        for (const Drawer &d : l.drawers) {
+            if (d.id == drawerId)
+                return cellRect(l.group, d.row, d.col);
+        }
+    }
+    return {};
 }
 
 void CabinetView::setLowStockDrawers(const QSet<int> &drawerIds)
@@ -195,7 +215,9 @@ void CabinetView::paintEvent(QPaintEvent *)
             const QRect cell = cellRect(group, d.row, d.col)
                                    .adjusted(kCellPadding, kCellPadding, -kCellPadding, -kCellPadding);
             const bool highlighted = m_highlighted.contains(d.id);
-            const QColor fill = drawerColor(group, d.size);
+            QColor fill = drawerColor(group, d.size);
+            if (m_emphasized.contains(d.id))
+                fill = fill.darker(kEmphasisDarkening);
             if (d.id == m_selectedDrawerId) {
                 selectedCell = cell;
                 selectedCellColor = fill.darker(kSelectionDarkening);

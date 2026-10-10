@@ -10,10 +10,13 @@
 #include "tools/ToolRegistry.h"
 
 class CabinetView;
+class AllItemsPanel;
 class ItemPanel;
 class QComboBox;
 class QAction;
 class QLineEdit;
+class QScrollArea;
+class QTabWidget;
 class ToolsDialog;
 
 class MainWindow : public QMainWindow
@@ -44,6 +47,7 @@ private:
     void selectDrawer(const Drawer &drawer);
     void applySearch();
     void updateLowStock();
+    void showItemDrawers(const QList<int> &drawerIds); // From the "All items" tab.
     void showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos);
     void copyItems(const QList<int> &itemIds);
     void cutItems(const QList<int> &itemIds);
@@ -95,8 +99,12 @@ private:
     QComboBox *m_cabinetCombo;
     CabinetView *m_view;
     ItemPanel *m_panel;
+    AllItemsPanel *m_allItems;
+    QTabWidget *m_itemTabs;
+    QScrollArea *m_scroll;
     QLineEdit *m_search;
     QList<ItemDialog::DrawerChoice> m_drawerChoices;
+    QHash<int, Drawer> m_drawersById; // Drawers of the current cabinet.
     QHash<int, QString> m_groupNames; // Group id -> name, for the current cabinet.
     int m_selectedDrawerId = 0;
     QList<int> m_itemClipboard; // Items copied or cut, waiting to be pasted.

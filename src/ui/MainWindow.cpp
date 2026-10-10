@@ -20,6 +20,7 @@
 #include "CabinetView.h"
 #include "DrawerDialog.h"
 #include "GroupDialog.h"
+#include "AllItemsPanel.h"
 #include "ItemPanel.h"
 #include "core/Layout.h"
 #include "tools/ToolsDialog.h"
@@ -39,25 +40,42 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_cabinetCombo(new QComboBox)
     , m_view(new CabinetView)
     , m_panel(new ItemPanel(repos.items))
+    , m_allItems(new AllItemsPanel(repos.items))
+    , m_itemTabs(new QTabWidget)
     , m_search(new QLineEdit)
 {
     setWindowTitle(tr("Drawer"));
     resize(1024, 700);
 
-    auto *scroll = new QScrollArea;
-    scroll->setWidget(m_view);
-    scroll->setWidgetResizable(true);
-    setCentralWidget(scroll);
+    m_scroll = new QScrollArea;
+    m_scroll->setWidget(m_view);
+    m_scroll->setWidgetResizable(true);
+    setCentralWidget(m_scroll);
 
+    m_itemTabs->addTab(m_panel, tr("Selected drawer"));
+    m_itemTabs->addTab(m_allItems, tr("All items"));
     auto *dock = new QDockWidget(tr("Items"), this);
-    dock->setWidget(m_panel);
+    dock->setWidget(m_itemTabs);
     addDockWidget(Qt::RightDockWidgetArea, dock);
     dock->setMinimumWidth(420);
 
     createActions();
 
     connect(m_cabinetCombo, &QComboBox::currentIndexChanged, this, &MainWindow::reloadView);
-    connect(m_view, &CabinetView::drawerSelected, this, &MainWindow::selectDrawer);
+    connect(m_view, &CabinetView::drawerSelected, this, [this](const Drawer &drawer) {
+        // Picking a drawer on the cabinet replaces whatever the "All items" list pointed at.
+        m_allItems->clearSelection();
+        m_view->setEmphasizedDrawers({});
+        selectDrawer(drawer);
+    });
+    connect(m_allItems, &AllItemsPanel::drawersChosen, this, &MainWindow::showItemDrawers);
+    connect(m_allItems, &AllItemsPanel::drawersActivated, this,
+            [this] { m_itemTabs->setCurrentWidget(m_panel); });
+    // Leaving the "All items" tab drops its emphasis; coming back restores it.
+    connect(m_itemTabs, &QTabWidget::currentChanged, this, [this] {
+        showItemDrawers(m_itemTabs->currentWidget() == m_allItems ? m_allItems->selectedDrawerIds()
+                                                                  : QList<int>());
+    });
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
     connect(m_panel, &ItemPanel::copyRequested, this, &MainWindow::copyItems);
     connect(m_panel, &ItemPanel::pasteRequested, this,
@@ -66,6 +84,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_panel, &ItemPanel::cutRequested, this, &MainWindow::cutItems);
     connect(m_panel, &ItemPanel::itemsChanged, this, [this](const QString &what) {
         recordChange(what);
+        m_allItems->reload();
         applySearch();
         updateLowStock();
     });
@@ -164,8 +183,11 @@ void MainWindow::reloadView()
 
     m_drawerChoices.clear();
     m_groupNames.clear();
+    m_drawersById.clear();
     for (const auto &l : layouts) {
         m_groupNames.insert(l.group.id, l.group.name);
+        for (const Drawer &d : l.drawers)
+            m_drawersById.insert(d.id, d);
         for (const Drawer &d : l.drawers)
             m_drawerChoices.append({d.id, QString("%1 / %2").arg(l.group.name, d.label)});
     }
@@ -173,6 +195,8 @@ void MainWindow::reloadView()
     m_panel->clear();
     applySearch();
     updateLowStock();
+    m_allItems->setCabinet(currentCabinetId());
+    m_view->setEmphasizedDrawers({});
 
     // Keep the selection across reloads that did not remove the drawer.
     for (const auto &l : layouts) {
@@ -274,6 +298,25 @@ void MainWindow::selectDrawer(const Drawer &drawer)
     m_panel->setDrawer(drawer, groupName, m_drawerChoices);
     statusBar()->showMessage(tr("Group %1, drawer %2 (%3)")
                                  .arg(groupName, drawer.label, drawerSizeToString(drawer.size)));
+}
+
+// Selecting a row of "All items" selects its drawer and darkens every drawer holding the item.
+void MainWindow::showItemDrawers(const QList<int> &drawerIds)
+{
+    QSet<int> shown;
+    for (int id : drawerIds) {
+        if (m_drawersById.contains(id))
+            shown.insert(id);
+    }
+    m_view->setEmphasizedDrawers(shown);
+    if (shown.isEmpty())
+        return;
+
+    const Drawer first = m_drawersById.value(drawerIds.first());
+    selectDrawer(first);
+    const QRect where = m_view->drawerRect(first.id);
+    if (!where.isNull())
+        m_scroll->ensureVisible(where.center().x(), where.center().y(), where.width(), where.height());
 }
 
 void MainWindow::updateLowStock()
@@ -623,6 +666,7 @@ void MainWindow::transferItems(const QList<int> &itemIds, int drawerId, bool cop
 void MainWindow::refreshItems()
 {
     m_panel->reload();
+    m_allItems->reload();
     applySearch();
     updateLowStock();
 }
