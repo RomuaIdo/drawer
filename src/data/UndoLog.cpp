@@ -4,7 +4,7 @@
 
 namespace {
 
-const QStringList kTables = {"cabinets", "drawer_groups", "drawers", "items"};
+const QStringList kTables = {"cabinets", "drawer_groups", "drawers", "items", "list_lines"};
 
 QStringList columnsOf(const QSqlDatabase &db, const QString &table)
 {

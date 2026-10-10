@@ -100,6 +100,12 @@ void ItemPanel::showContextMenu(const QPoint &pos)
     menu.addAction(tr("Paste"), QKeySequence::Paste, this, [this] { emit pasteRequested(); })
         ->setEnabled(m_canPaste && m_drawerId != 0);
     menu.addSeparator();
+    menu.addAction(tr("Add to pick list"), this, [this, ids] { emit addToListRequested(ListKind::Pick, ids); })
+        ->setEnabled(!ids.isEmpty());
+    menu.addAction(tr("Add to restock list"), this,
+                   [this, ids] { emit addToListRequested(ListKind::Restock, ids); })
+        ->setEnabled(!ids.isEmpty());
+    menu.addSeparator();
     menu.addAction(tr("Edit"), this, &ItemPanel::editItem)->setEnabled(!ids.isEmpty());
     menu.addAction(tr("Remove"), this, &ItemPanel::removeItem)->setEnabled(!ids.isEmpty());
     Q_UNUSED(hasSelection)

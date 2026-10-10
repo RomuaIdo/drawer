@@ -1,10 +1,12 @@
 #include <QAction>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QTabWidget>
+#include <QTimer>
 #include <QSignalSpy>
 #include <QTableView>
 #include <QtTest>
@@ -14,12 +16,14 @@
 #include "data/SqliteDrawerRepository.h"
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteMappingRepository.h"
+#include "data/SqliteListRepository.h"
 #include "data/SqliteOrganizationRepository.h"
 #include "data/UndoLog.h"
 #include "export/CsvExporter.h"
 #include "ui/AllItemsPanel.h"
 #include "ui/CabinetView.h"
 #include "ui/ItemPanel.h"
+#include "ui/ListPanel.h"
 #include "ui/MainWindow.h"
 
 // Edit menu behavior: shortcuts, undo/redo, cut/copy/paste and select all.
@@ -36,6 +40,7 @@ private slots:
         m_items = std::make_unique<SqliteItemRepository>(m_db->connection());
         m_mapping = std::make_unique<SqliteMappingRepository>(m_db->connection());
         m_org = std::make_unique<SqliteOrganizationRepository>(m_db->connection());
+        m_lists = std::make_unique<SqliteListRepository>(m_db->connection());
 
         // One cabinet with two single-row blocks; the first drawer holds an item.
         const int cabinet = m_cabinets->add({0, "Bench", ""}).id;
@@ -56,7 +61,7 @@ private slots:
         m_db->undoLog().clear(); // The setup is not part of the history under test.
 
         m_window = std::make_unique<MainWindow>(
-            Repositories{*m_cabinets, *m_drawers, *m_items, *m_mapping, *m_org, m_db->undoLog()},
+            Repositories{*m_cabinets, *m_drawers, *m_items, *m_mapping, *m_org, *m_lists, m_db->undoLog()},
             m_exporter);
         m_window->show();
         m_view = m_window->findChild<CabinetView *>();
@@ -67,6 +72,7 @@ private slots:
     void cleanup()
     {
         m_window.reset();
+        m_lists.reset();
         m_org.reset();
         m_mapping.reset();
         m_items.reset();
@@ -277,6 +283,59 @@ private slots:
         QCOMPARE(table->model()->rowCount(), 3);
     }
 
+    void addingToTheListsShowsInTheTabsAndApplyingIsUndoable()
+    {
+        auto *tabs = m_window->findChild<QTabWidget *>();
+        QCOMPARE(tabs->tabText(2), QString("Pick list"));
+        QCOMPARE(tabs->tabText(3), QString("Restock list"));
+
+        const int itemId = m_items->inDrawer(m_left[0].id).first().id; // Resistor, 5 in stock.
+        emit m_panel->addToListRequested(ListKind::Pick, {itemId});
+        QCOMPARE(tabs->tabText(2), QString("Pick list (1)"));
+        QCOMPARE(tabs->tabText(3), QString("Restock list")); // The other list is untouched.
+        QVERIFY(action("Undo")->text().contains("Add to pick list"));
+
+        // Apply from the tab: the stock drops and everything refreshes.
+        ListPanel *pickList = listPanel(ListKind::Pick);
+        QVERIFY(pickList);
+        QTimer::singleShot(50, [] {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
+                box->button(QMessageBox::Yes)->click();
+        });
+        pickList->applyToStock();
+        QCOMPARE(m_items->find(itemId)->quantity, 4);
+        QCOMPARE(tabs->tabText(2), QString("Pick list"));
+
+        action("Undo")->trigger(); // The stock and the list line return together.
+        QCOMPARE(m_items->find(itemId)->quantity, 5);
+        QCOMPARE(tabs->tabText(2), QString("Pick list (1)"));
+        action("Undo")->trigger();
+        QCOMPARE(tabs->tabText(2), QString("Pick list"));
+    }
+
+    void pickingALineDarkensItsDrawer()
+    {
+        const Item item = m_items->inDrawer(m_left[0].id).first();
+        emit m_panel->addToListRequested(ListKind::Restock, {item.id});
+        auto *tabs = m_window->findChild<QTabWidget *>();
+        tabs->setCurrentIndex(3);
+
+        const QColor before = drawerColor(m_left[0].id);
+        listPanel(ListKind::Restock)->findChild<QTableView *>()->selectRow(0);
+        QVERIFY(drawerColor(m_left[0].id).lightness() < before.lightness());
+        tabs->setCurrentIndex(0); // Leaving the tab drops it.
+        QCOMPARE(drawerColor(m_left[0].id).rgb(), before.rgb());
+    }
+
+    void deletingAnItemRemovesItFromTheLists()
+    {
+        const Item item = m_items->inDrawer(m_left[0].id).first();
+        emit m_panel->addToListRequested(ListKind::Pick, {item.id});
+        QCOMPARE(m_lists->lines(ListKind::Pick).size(), 1);
+        m_items->remove(item.id);
+        QVERIFY(m_lists->lines(ListKind::Pick).isEmpty());
+    }
+
     void selectAllSelectsEveryGroupWhenTheCabinetHasTheFocus()
     {
         action("Select all")->trigger();
@@ -322,6 +381,15 @@ private:
         return m_view->grab().toImage().pixelColor(r.left() + 8, r.bottom() - 14);
     }
 
+    ListPanel *listPanel(ListKind kind)
+    {
+        for (ListPanel *panel : m_window->findChildren<ListPanel *>()) {
+            if (panel->kind() == kind)
+                return panel;
+        }
+        return nullptr;
+    }
+
     QTableView *panelTable() { return m_panel->findChild<QTableView *>(); }
 
     void selectDrawer(const Drawer &drawer) { emit m_view->drawerSelected(drawer); }
@@ -332,6 +400,7 @@ private:
     std::unique_ptr<SqliteItemRepository> m_items;
     std::unique_ptr<SqliteMappingRepository> m_mapping;
     std::unique_ptr<SqliteOrganizationRepository> m_org;
+    std::unique_ptr<SqliteListRepository> m_lists;
     CsvExporter m_exporter;
     std::unique_ptr<MainWindow> m_window;
     CabinetView *m_view = nullptr;

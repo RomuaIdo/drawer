@@ -68,6 +68,16 @@ const QStringList kMigrations = {
     WINDOW w AS (PARTITION BY g.cabinet_id, lower(trim(i.name)), lower(trim(i.category)),
                  lower(trim(i.value)), lower(trim(i.package)))
     )",
+    // Pick and restock lists: at most one line per item entry and list.
+    R"(
+    CREATE TABLE list_lines (
+        id INTEGER PRIMARY KEY,
+        kind TEXT NOT NULL CHECK (kind IN ('pick', 'restock')),
+        item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        quantity INTEGER NOT NULL CHECK (quantity > 0),
+        UNIQUE (kind, item_id)
+    )
+    )",
 };
 
 } // namespace

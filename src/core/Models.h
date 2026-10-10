@@ -67,6 +67,30 @@ struct ItemLocation {
     int quantity = 0;
 };
 
+// Working lists of components, applied to the stock all at once.
+enum class ListKind {
+    Pick,    // Components to take out of stock, e.g. for a project.
+    Restock, // Components that arrived and go into stock.
+};
+
+// One line of a list: an item entry (and so a drawer) with the quantity to take or add.
+struct ListLine {
+    int id = 0;
+    ListKind kind = ListKind::Pick;
+    Item item;
+    QString group;
+    QString drawerLabel;
+    int quantity = 0;
+
+    // Picking more than is in the drawer.
+    bool isShort() const { return kind == ListKind::Pick && quantity > item.quantity; }
+};
+
+struct ListResult {
+    int lines = 0;      // Lines applied.
+    int shortLines = 0; // Pick lines that asked for more than the stock held.
+};
+
 // An item together with where it is, for listing a whole cabinet.
 struct ItemEntry {
     Item item;

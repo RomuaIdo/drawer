@@ -12,6 +12,7 @@
 #include "data/SqliteDrawerRepository.h"
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteMappingRepository.h"
+#include "data/SqliteListRepository.h"
 #include "data/SqliteOrganizationRepository.h"
 #include "data/UndoLog.h"
 #include "export/CsvExporter.h"
@@ -43,7 +44,8 @@ private slots:
         SqliteMappingRepository mapping(db.connection());
         SqliteOrganizationRepository organization(db.connection());
         CsvExporter exporter;
-        MainWindow window({cabinets, drawers, items, mapping, organization, db.undoLog()}, exporter);
+        SqliteListRepository lists(db.connection());
+        MainWindow window({cabinets, drawers, items, mapping, organization, lists, db.undoLog()}, exporter);
         QCOMPARE(window.windowTitle(), QString("Drawer"));
     }
 
