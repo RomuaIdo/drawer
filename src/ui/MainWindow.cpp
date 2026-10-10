@@ -21,6 +21,7 @@
 #include "GroupDialog.h"
 #include "ItemPanel.h"
 #include "core/Layout.h"
+#include "tools/ToolsDialog.h"
 #include "data/DatabaseError.h"
 
 MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWidget *parent)
@@ -30,6 +31,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_items(repos.items)
     , m_mapping(repos.mapping)
     , m_exporter(exporter)
+    , m_tools(ToolRegistry::withDefaultTools())
     , m_cabinetCombo(new QComboBox)
     , m_view(new CabinetView)
     , m_panel(new ItemPanel(repos.items))
@@ -67,6 +69,9 @@ void MainWindow::createActions()
                         &MainWindow::exportMapping);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Quit"), QKeySequence::Quit, this, &QWidget::close);
+
+    menuBar()->addMenu(tr("&Tools"))->addAction(tr("&Electronics tools..."), this,
+                                                &MainWindow::showTools);
 
     auto *bar = addToolBar(tr("Cabinet"));
     bar->setMovable(false);
@@ -132,6 +137,14 @@ void MainWindow::reloadView()
     m_selectedDrawerId = 0;
     m_panel->clear();
     applySearch();
+}
+
+void MainWindow::showTools()
+{
+    if (!m_toolsDialog)
+        m_toolsDialog = new ToolsDialog(m_tools, this);
+    m_toolsDialog->show();
+    m_toolsDialog->raise();
 }
 
 void MainWindow::exportMapping()
