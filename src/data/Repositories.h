@@ -41,3 +41,20 @@ public:
     virtual void update(const Item &item) = 0; // Also used to move an item between drawers.
     virtual void remove(int id) = 0;
 };
+
+// Read-only flattened view used by exporters.
+class IMappingRepository
+{
+public:
+    virtual ~IMappingRepository() = default;
+    // One row per item, plus one row per empty drawer.
+    virtual QList<MappingRow> rows() const = 0;
+};
+
+// Bundles the repositories handed to the UI.
+struct Repositories {
+    ICabinetRepository &cabinets;
+    IDrawerRepository &drawers;
+    IItemRepository &items;
+    IMappingRepository &mapping;
+};

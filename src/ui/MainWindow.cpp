@@ -3,9 +3,13 @@
 #include <QAction>
 #include <QComboBox>
 #include <QDockWidget>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QLineEdit>
 #include <QLabel>
 #include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QScrollArea>
 #include <QStatusBar>
@@ -19,15 +23,16 @@
 #include "core/Layout.h"
 #include "data/DatabaseError.h"
 
-MainWindow::MainWindow(ICabinetRepository &cabinets, IDrawerRepository &drawers,
-                       IItemRepository &items, QWidget *parent)
+MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWidget *parent)
     : QMainWindow(parent)
-    , m_cabinets(cabinets)
-    , m_drawers(drawers)
-    , m_items(items)
+    , m_cabinets(repos.cabinets)
+    , m_drawers(repos.drawers)
+    , m_items(repos.items)
+    , m_mapping(repos.mapping)
+    , m_exporter(exporter)
     , m_cabinetCombo(new QComboBox)
     , m_view(new CabinetView)
-    , m_panel(new ItemPanel(items))
+    , m_panel(new ItemPanel(repos.items))
     , m_search(new QLineEdit)
 {
     setWindowTitle(tr("Drawer"));
@@ -57,6 +62,12 @@ MainWindow::MainWindow(ICabinetRepository &cabinets, IDrawerRepository &drawers,
 
 void MainWindow::createActions()
 {
+    auto *fileMenu = menuBar()->addMenu(tr("&File"));
+    fileMenu->addAction(tr("&Export mapping as %1...").arg(m_exporter.name()), QKeySequence(Qt::CTRL | Qt::Key_E), this,
+                        &MainWindow::exportMapping);
+    fileMenu->addSeparator();
+    fileMenu->addAction(tr("&Quit"), QKeySequence::Quit, this, &QWidget::close);
+
     auto *bar = addToolBar(tr("Cabinet"));
     bar->setMovable(false);
     bar->addWidget(new QLabel(tr("Cabinet: ")));
@@ -121,6 +132,27 @@ void MainWindow::reloadView()
     m_selectedDrawerId = 0;
     m_panel->clear();
     applySearch();
+}
+
+void MainWindow::exportMapping()
+{
+    QString path = QFileDialog::getSaveFileName(this, tr("Export mapping"), "drawer-mapping",
+                                                m_exporter.fileFilter());
+    if (path.isEmpty())
+        return;
+    if (QFileInfo(path).suffix().isEmpty())
+        path += "." + m_exporter.defaultSuffix();
+
+    guarded([&] {
+        const QList<MappingRow> rows = m_mapping.rows();
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            QMessageBox::critical(this, tr("Export failed"), file.errorString());
+            return;
+        }
+        m_exporter.write(rows, file);
+        statusBar()->showMessage(tr("Exported %n row(s) to %1", "", rows.size()).arg(path));
+    });
 }
 
 void MainWindow::selectDrawer(const Drawer &drawer)

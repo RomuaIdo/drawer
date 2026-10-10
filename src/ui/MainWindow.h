@@ -5,6 +5,7 @@
 #include "core/Models.h"
 #include "ItemDialog.h"
 #include "data/Repositories.h"
+#include "export/Exporter.h"
 
 class CabinetView;
 class ItemPanel;
@@ -16,8 +17,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(ICabinetRepository &cabinets, IDrawerRepository &drawers, IItemRepository &items,
-               QWidget *parent = nullptr);
+    MainWindow(const Repositories &repos, const IExporter &exporter, QWidget *parent = nullptr);
 
 private:
     void createActions();
@@ -32,6 +32,7 @@ private:
     void editGroup(const DrawerGroup &group);
     void deleteGroup(const DrawerGroup &group);
     void editDrawer(const Drawer &drawer);
+    void exportMapping();
     void selectDrawer(const Drawer &drawer);
     void applySearch();
     void showGroupMenu(const DrawerGroup &group, const QPoint &globalPos);
@@ -42,6 +43,8 @@ private:
     ICabinetRepository &m_cabinets;
     IDrawerRepository &m_drawers;
     IItemRepository &m_items;
+    IMappingRepository &m_mapping;
+    const IExporter &m_exporter;
     QComboBox *m_cabinetCombo;
     CabinetView *m_view;
     ItemPanel *m_panel;

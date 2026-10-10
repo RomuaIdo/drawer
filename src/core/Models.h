@@ -43,3 +43,20 @@ struct Item {
     int quantity = 0;
     QString notes;
 };
+
+// One flattened line of the cabinet mapping; empty drawers have no item fields.
+struct MappingRow {
+    QString cabinet;
+    QString group;
+    int row = 0; // 1-based within the group.
+    int col = 0;
+    QString drawerLabel;
+    DrawerSize drawerSize = DrawerSize::Medium;
+    QString itemName;
+    QString category;
+    QString value;
+    QString package;
+    int quantity = 0;
+    QString notes;
+    bool hasItem = false;
+};
