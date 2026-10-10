@@ -37,6 +37,10 @@ public:
     void setFreeMove(bool free) { m_freeMove = free; }
     bool freeMove() const { return m_freeMove; }
 
+    // Picker mode: the view only lets a drawer be chosen with a click (e.g. inside a dialog);
+    // blocks cannot be selected, dragged or edited, and nothing can be dropped.
+    void setPickerMode(bool picker);
+
     // Blocks currently selected for moving (Ctrl+click, rubber band or Ctrl+A).
     QSet<int> selectedGroups() const { return m_selectedGroups; }
     void selectAllGroups();
@@ -91,6 +95,7 @@ private:
     int m_dropDrawerId = 0; // Drawer under an item being dragged over the view.
     QSet<int> m_selectedGroups;
     bool m_freeMove = false;
+    bool m_picker = false;
     QPoint m_pressPos;
     int m_pressedGroupId = 0; // Block under the mouse button; the anchor of a drag.
     int m_collapseTo = 0;     // Block to select alone if the press turns out to be a plain click.
@@ -106,3 +111,6 @@ private:
     QRect m_bandRect;
     QSet<int> m_bandBase; // Selection kept when Ctrl was held at the start.
 };
+
+// The drawers of a cabinet, block by block.
+using DrawerLayouts = QList<CabinetView::GroupLayout>;

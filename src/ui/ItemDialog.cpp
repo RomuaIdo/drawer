@@ -1,28 +1,70 @@
 #include "ItemDialog.h"
 
 #include <QCheckBox>
-#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QVBoxLayout>
 #include <QSpinBox>
 #include <QTableWidget>
 
-ItemDialog::ItemDialog(const Item &item, const QList<DrawerChoice> &drawers, QWidget *parent)
+ItemDialog::ItemDialog(const Item &item, const DrawerLayouts &drawers, QWidget *parent)
     : QDialog(parent)
     , m_item(item)
-    , m_drawer(new QComboBox)
+    , m_picker(new CabinetView)
+    , m_drawerText(new QLabel)
+    , m_layouts(drawers)
     , m_quantity(new QSpinBox)
 {
-    for (const DrawerChoice &d : drawers)
-        m_drawer->addItem(d.text, d.id);
-    m_drawer->setCurrentIndex(m_drawer->findData(item.drawerId));
     m_quantity->setRange(0, 1000000);
     m_quantity->setValue(item.quantity);
+    m_picker->setPickerMode(true);
+    m_picker->setLayouts(m_layouts);
     setup(item);
+    connect(m_picker, &CabinetView::drawerSelected, this,
+            [this](const Drawer &drawer) { chooseDrawer(drawer.id); });
+    chooseDrawer(item.drawerId);
+}
+
+void ItemDialog::chooseDrawer(int drawerId)
+{
+    m_drawerId = 0;
+    QString text = tr("Click a drawer");
+    for (const CabinetView::GroupLayout &l : m_layouts) {
+        for (const Drawer &d : l.drawers) {
+            if (d.id == drawerId) {
+                m_drawerId = d.id;
+                text = tr("Drawer: %1 / %2").arg(l.group.name, d.label);
+            }
+        }
+    }
+    m_picker->setSelectedDrawer(m_drawerId);
+    m_drawerText->setText(text);
+    updateOk();
+}
+
+void ItemDialog::updateOk()
+{
+    // A name is required, and the drawer when it is being chosen.
+    m_ok->setEnabled(!m_name->text().trimmed().isEmpty() && (!m_picker || m_drawerId != 0));
+}
+
+void ItemDialog::setRestockMode()
+{
+    setWindowTitle(tr("Add item to the restock list"));
+    if (m_quantity) {
+        m_quantity->setMinimum(1);
+        if (m_quantity->value() < 1)
+            m_quantity->setValue(1);
+        if (auto *form = qobject_cast<QFormLayout *>(layout()))
+            if (auto *label = qobject_cast<QLabel *>(form->labelForField(m_quantity)))
+                label->setText(tr("Quantity to add"));
+    }
 }
 
 ItemDialog::ItemDialog(const Item &item, const QList<ItemLocation> &occurrences, QWidget *parent)
@@ -37,7 +79,7 @@ ItemDialog::ItemDialog(const Item &item, const QList<ItemLocation> &occurrences,
 
 void ItemDialog::setup(const Item &item)
 {
-    const bool everyEntry = m_drawer == nullptr;
+    const bool everyEntry = m_picker == nullptr;
     setWindowTitle(everyEntry ? tr("Edit item in every drawer")
                               : (item.id ? tr("Edit item") : tr("New item")));
 
@@ -59,8 +101,17 @@ void ItemDialog::setup(const Item &item)
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     auto *form = new QFormLayout(this);
-    if (m_drawer)
-        form->addRow(tr("Drawer"), m_drawer);
+    if (m_picker) {
+        // A small view of the cabinet: the drawer is chosen by clicking it.
+        auto *scroll = new QScrollArea;
+        scroll->setWidget(m_picker);
+        scroll->setWidgetResizable(true);
+        scroll->setMinimumSize(380, 190);
+        auto *pick = new QVBoxLayout;
+        pick->addWidget(scroll);
+        pick->addWidget(m_drawerText);
+        form->addRow(tr("Drawer"), pick);
+    }
     form->addRow(tr("Name"), m_name);
     form->addRow(tr("Category"), m_category);
     form->addRow(tr("Value"), m_value);
@@ -75,10 +126,9 @@ void ItemDialog::setup(const Item &item)
     form->addRow(buttons);
 
     // Name is required.
-    auto *ok = buttons->button(QDialogButtonBox::Ok);
-    ok->setEnabled(!item.name.trimmed().isEmpty());
-    connect(m_name, &QLineEdit::textChanged, this,
-            [ok](const QString &text) { ok->setEnabled(!text.trimmed().isEmpty()); });
+    m_ok = buttons->button(QDialogButtonBox::Ok);
+    updateOk();
+    connect(m_name, &QLineEdit::textChanged, this, &ItemDialog::updateOk);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
@@ -109,8 +159,8 @@ QWidget *ItemDialog::buildOccurrences(const QList<ItemLocation> &occurrences)
 Item ItemDialog::item() const
 {
     Item result = m_item;
-    if (m_drawer) {
-        result.drawerId = m_drawer->currentData().toInt();
+    if (m_picker) {
+        result.drawerId = m_drawerId;
         result.quantity = m_quantity->value();
     }
     result.name = m_name->text().trimmed();

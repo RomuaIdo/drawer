@@ -1,4 +1,6 @@
 #include <QLabel>
+#include <QLineEdit>
+#include <QSpinBox>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSignalSpy>
@@ -11,6 +13,7 @@
 #include "data/SqliteDrawerRepository.h"
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteListRepository.h"
+#include "ui/CabinetView.h"
 #include "ui/ListModel.h"
 #include "ui/ListPanel.h"
 
@@ -51,6 +54,7 @@ struct Fixture {
     SqliteItemRepository items{db.connection()};
     SqliteListRepository lists{db.connection()};
     QList<Drawer> drawer;
+    DrawerLayouts layouts;
     Item screw, nut;
 
     Fixture()
@@ -59,7 +63,9 @@ struct Fixture {
         g.cabinetId = cabinets.add({0, "C", ""}).id;
         g.name = "G";
         g.cols = 2;
-        drawer = drawers.drawersOf(drawers.addGroup(g).id);
+        g = drawers.addGroup(g);
+        drawer = drawers.drawersOf(g.id);
+        layouts = {{g, drawer}};
         screw = items.add({0, drawer[0].id, "Screw", "Hardware", "M3", "", 50, ""});
         nut = items.add({0, drawer[1].id, "Nut", "Hardware", "M3", "", 3, ""});
     }
@@ -79,7 +85,7 @@ private slots:
         for (const ListLine &line : f.lists.lines(ListKind::Pick))
             f.lists.setQuantity(line.id, line.item.name == "Screw" ? 8 : 5); // 5 nuts, only 3.
 
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
         auto *table = panel.findChild<QTableView *>();
         QCOMPARE(table->model()->rowCount(), 2);
         auto cell = [&](int row, int column) {
@@ -101,7 +107,7 @@ private slots:
         Fixture f;
         f.lists.add(ListKind::Restock, {f.nut.id});
         f.lists.setQuantity(f.lists.lines(ListKind::Restock).first().id, 20);
-        ListPanel panel(ListKind::Restock, f.lists);
+        ListPanel panel(ListKind::Restock, f.lists, f.items);
         auto *table = panel.findChild<QTableView *>();
         QCOMPARE(table->model()->index(0, ListModel::After).data().toInt(), 23);
         QCOMPARE(table->model()->headerData(ListModel::Quantity, Qt::Horizontal).toString(),
@@ -112,7 +118,7 @@ private slots:
     void anEmptyListCannotBeApplied()
     {
         Fixture f;
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
         QVERIFY(!buttonText(&panel, "Take all from stock")->isEnabled());
         QVERIFY(!buttonText(&panel, "Clear")->isEnabled());
         QVERIFY(!buttonText(&panel, "Remove line")->isEnabled());
@@ -123,7 +129,7 @@ private slots:
     {
         Fixture f;
         f.lists.add(ListKind::Pick, {f.screw.id});
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
         QSignalSpy changed(&panel, &ListPanel::listChanged);
         auto *table = panel.findChild<QTableView *>();
 
@@ -139,7 +145,7 @@ private slots:
     {
         Fixture f;
         f.lists.add(ListKind::Pick, {f.screw.id, f.nut.id});
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
         QSignalSpy changed(&panel, &ListPanel::listChanged);
         auto *table = panel.findChild<QTableView *>();
 
@@ -160,7 +166,7 @@ private slots:
         f.lists.add(ListKind::Pick, {f.screw.id, f.nut.id});
         for (const ListLine &line : f.lists.lines(ListKind::Pick))
             f.lists.setQuantity(line.id, 2);
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
         QSignalSpy applied(&panel, &ListPanel::applied);
 
         onNextDialog([](QWidget *box) { answer(box, QMessageBox::No); });
@@ -186,7 +192,7 @@ private slots:
         Fixture f;
         f.lists.add(ListKind::Pick, {f.nut.id});
         f.lists.setQuantity(f.lists.lines(ListKind::Pick).first().id, 10); // Only 3 in stock.
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
 
         QString question;
         onNextDialog([&question](QWidget *box) {
@@ -204,7 +210,7 @@ private slots:
         f.lists.add(ListKind::Restock, {f.screw.id, f.nut.id});
         for (const ListLine &line : f.lists.lines(ListKind::Restock))
             f.lists.setQuantity(line.id, 10);
-        ListPanel panel(ListKind::Restock, f.lists);
+        ListPanel panel(ListKind::Restock, f.lists, f.items);
         QSignalSpy applied(&panel, &ListPanel::applied);
 
         onNextDialog([](QWidget *box) { answer(box, QMessageBox::Yes); });
@@ -214,11 +220,104 @@ private slots:
         QCOMPARE(applied.count(), 1);
     }
 
+    void onlyTheRestockListHasAnAddButton()
+    {
+        Fixture f;
+        ListPanel pick(ListKind::Pick, f.lists, f.items);
+        ListPanel restock(ListKind::Restock, f.lists, f.items);
+        pick.show();
+        restock.show();
+        QVERIFY(!buttonText(&pick, "Add")->isVisible());
+        QVERIFY(buttonText(&restock, "Add")->isVisible());
+        QVERIFY(!buttonText(&restock, "Add")->isEnabled()); // No drawers to put it in yet.
+        restock.setDestinations(f.layouts);
+        QVERIFY(buttonText(&restock, "Add")->isEnabled());
+    }
+
+    void addCreatesAnEmptyItemInTheClickedDrawerAndListsIt()
+    {
+        Fixture f;
+        ListPanel panel(ListKind::Restock, f.lists, f.items);
+        panel.setDestinations(f.layouts);
+        panel.setDefaultDrawer(f.drawer[0].id);
+        panel.show();
+        QSignalSpy changed(&panel, &ListPanel::itemsChanged);
+
+        QString drawerText;
+        onNextDialog([&](QWidget *dialog) {
+            dialog->findChildren<QLineEdit *>()[0]->setText("Zener 5V1");
+            auto *picker = dialog->findChild<CabinetView *>();
+            // Click the second drawer in the dialog's own view of the cabinet.
+            QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
+                              picker->drawerRect(f.drawer[1].id).center());
+            for (QLabel *label : dialog->findChildren<QLabel *>()) {
+                if (label->text().startsWith("Drawer:"))
+                    drawerText = label->text();
+            }
+            dialog->findChild<QSpinBox *>()->setValue(25); // Quantity to add.
+            buttonText(dialog, "OK")->click();
+        });
+        buttonText(&panel, "Add")->click();
+
+        QCOMPARE(drawerText, QString("Drawer: G / R1C2"));
+        const QList<Item> inSecond = f.items.inDrawer(f.drawer[1].id);
+        QCOMPARE(inSecond.size(), 2); // The nut was there already.
+        Item created;
+        for (const Item &item : inSecond) {
+            if (item.name == "Zener 5V1")
+                created = item;
+        }
+        QCOMPARE(created.quantity, 0); // Nothing is in stock until the list is applied.
+        const QList<ListLine> lines = f.lists.lines(ListKind::Restock);
+        QCOMPARE(lines.size(), 1);
+        QCOMPARE(lines[0].item.id, created.id);
+        QCOMPARE(lines[0].quantity, 25);
+        QCOMPARE(changed.count(), 1);
+
+        onNextDialog([](QWidget *box) { answer(box, QMessageBox::Yes); });
+        buttonText(&panel, "Restock all")->click();
+        QCOMPARE(f.items.find(created.id)->quantity, 25);
+    }
+
+    void cancellingTheAddDialogChangesNothing()
+    {
+        Fixture f;
+        ListPanel panel(ListKind::Restock, f.lists, f.items);
+        panel.setDestinations(f.layouts);
+        panel.show();
+        onNextDialog([](QWidget *dialog) { buttonText(dialog, "Cancel")->click(); });
+        buttonText(&panel, "Add")->click();
+        QVERIFY(f.lists.lines(ListKind::Restock).isEmpty());
+        QCOMPARE(f.items.inDrawer(f.drawer[0].id).size(), 1);
+    }
+
+    void theDialogNeedsADrawerAndAName()
+    {
+        Fixture f;
+        ListPanel panel(ListKind::Restock, f.lists, f.items);
+        panel.setDestinations(f.layouts); // No default drawer chosen.
+        panel.show();
+        bool okAfterNameOnly = true;
+        bool okAfterDrawer = false;
+        onNextDialog([&](QWidget *dialog) {
+            dialog->findChildren<QLineEdit *>()[0]->setText("Thing");
+            okAfterNameOnly = buttonText(dialog, "OK")->isEnabled();
+            auto *picker = dialog->findChild<CabinetView *>();
+            QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
+                              picker->drawerRect(f.drawer[0].id).center());
+            okAfterDrawer = buttonText(dialog, "OK")->isEnabled();
+            buttonText(dialog, "Cancel")->click();
+        });
+        buttonText(&panel, "Add")->click();
+        QVERIFY(!okAfterNameOnly); // Name filled, but no drawer picked yet.
+        QVERIFY(okAfterDrawer);
+    }
+
     void selectingLinesReportsTheirDrawers()
     {
         Fixture f;
         f.lists.add(ListKind::Pick, {f.screw.id, f.nut.id});
-        ListPanel panel(ListKind::Pick, f.lists);
+        ListPanel panel(ListKind::Pick, f.lists, f.items);
         QSignalSpy chosen(&panel, &ListPanel::drawersChosen);
         panel.findChild<QTableView *>()->selectAll();
         QCOMPARE(panel.selectedDrawerIds().size(), 2);

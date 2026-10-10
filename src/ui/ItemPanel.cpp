@@ -113,7 +113,7 @@ void ItemPanel::showContextMenu(const QPoint &pos)
 }
 
 void ItemPanel::setDrawer(const Drawer &drawer, const QString &groupName,
-                          const QList<ItemDialog::DrawerChoice> &destinations)
+                          const DrawerLayouts &destinations)
 {
     m_drawerId = drawer.id;
     m_destinations = destinations;

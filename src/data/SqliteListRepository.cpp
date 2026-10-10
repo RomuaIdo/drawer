@@ -44,16 +44,17 @@ QList<ListLine> SqliteListRepository::lines(ListKind kind) const
     return result;
 }
 
-void SqliteListRepository::add(ListKind kind, const QList<int> &itemIds)
+void SqliteListRepository::add(ListKind kind, const QList<int> &itemIds, int quantity)
 {
+    quantity = std::max(1, quantity);
     SqlUtil::Transaction tx(m_db);
     for (int id : itemIds) {
         // Unknown ids are skipped; a second add of the same entry raises its quantity.
         SqlUtil::exec(m_db,
             "INSERT INTO list_lines (kind, item_id, quantity) "
-            "SELECT ?, id, 1 FROM items WHERE id = ? "
-            "ON CONFLICT (kind, item_id) DO UPDATE SET quantity = quantity + 1",
-            {kindName(kind), id});
+            "SELECT ?, id, ? FROM items WHERE id = ? "
+            "ON CONFLICT (kind, item_id) DO UPDATE SET quantity = quantity + ?",
+            {kindName(kind), quantity, id, quantity});
     }
     tx.commit();
 }

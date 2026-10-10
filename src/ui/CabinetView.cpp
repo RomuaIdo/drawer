@@ -99,6 +99,13 @@ QRect CabinetView::drawerRect(int drawerId) const
     return {};
 }
 
+void CabinetView::setPickerMode(bool picker)
+{
+    m_picker = picker;
+    setAcceptDrops(!picker);
+    setFocusPolicy(picker ? Qt::NoFocus : Qt::StrongFocus);
+}
+
 void CabinetView::setLowStockDrawers(const QSet<int> &drawerIds)
 {
     m_lowStock = drawerIds;
@@ -296,8 +303,15 @@ void CabinetView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() != Qt::LeftButton)
         return;
-    setFocus();
     const Hit hit = hitTest(event->pos());
+    if (m_picker) {
+        if (hit.drawer) {
+            setSelectedDrawer(hit.drawer->id);
+            emit drawerSelected(*hit.drawer);
+        }
+        return;
+    }
+    setFocus();
     const bool additive = event->modifiers() & Qt::ControlModifier;
     m_pressPos = event->pos();
     m_pressedGroupId = 0;
@@ -487,6 +501,8 @@ void CabinetView::mouseDoubleClickEvent(QMouseEvent *event)
 
 void CabinetView::contextMenuEvent(QContextMenuEvent *event)
 {
+    if (m_picker)
+        return;
     const Hit hit = hitTest(event->pos());
     if (hit.layout && !m_selectedGroups.contains(hit.layout->group.id))
         setSelectedGroups({hit.layout->group.id});
@@ -497,6 +513,8 @@ void CabinetView::contextMenuEvent(QContextMenuEvent *event)
 
 void CabinetView::dragEnterEvent(QDragEnterEvent *event)
 {
+    if (m_picker)
+        return;
     if (ItemMime::accepts(event->mimeData()))
         event->acceptProposedAction();
 }

@@ -23,7 +23,7 @@ public:
     // Only items of this category are listed; empty lists everything.
     void setCategoryFilter(const QString &category);
     // Drawers an item can be put in, and the one a new item starts in.
-    void setDestinations(const QList<ItemDialog::DrawerChoice> &drawers);
+    void setDestinations(const DrawerLayouts &drawers);
     void setDefaultDrawer(int drawerId) { m_defaultDrawerId = drawerId; }
 
     void reload();
@@ -67,5 +67,5 @@ private:
     int m_cabinetId = 0;
     int m_defaultDrawerId = 0;
     QString m_category;
-    QList<ItemDialog::DrawerChoice> m_destinations;
+    DrawerLayouts m_destinations;
 };

@@ -96,7 +96,20 @@ void AllItemsPanel::setCategoryFilter(const QString &category)
     reload();
 }
 
-void AllItemsPanel::setDestinations(const QList<ItemDialog::DrawerChoice> &drawers)
+namespace {
+
+int firstDrawerId(const DrawerLayouts &layouts)
+{
+    for (const CabinetView::GroupLayout &l : layouts) {
+        if (!l.drawers.isEmpty())
+            return l.drawers.first().id;
+    }
+    return 0;
+}
+
+} // namespace
+
+void AllItemsPanel::setDestinations(const DrawerLayouts &drawers)
 {
     m_destinations = drawers;
     updateButtons();
@@ -129,7 +142,7 @@ void AllItemsPanel::reloadKeeping(int itemId)
 void AllItemsPanel::updateButtons()
 {
     const bool hasSelection = m_table->selectionModel()->hasSelection();
-    m_add->setEnabled(m_cabinetId != 0 && !m_destinations.isEmpty());
+    m_add->setEnabled(m_cabinetId != 0 && firstDrawerId(m_destinations) != 0);
     m_edit->setEnabled(hasSelection);
     m_remove->setEnabled(hasSelection);
     // One count per entry: with duplicates merged there is no single quantity to nudge.
@@ -188,10 +201,10 @@ void AllItemsPanel::showContextMenu(const QPoint &pos)
 
 void AllItemsPanel::addItem()
 {
-    if (m_destinations.isEmpty())
+    if (firstDrawerId(m_destinations) == 0)
         return;
     Item item;
-    item.drawerId = m_defaultDrawerId ? m_defaultDrawerId : m_destinations.first().id;
+    item.drawerId = m_defaultDrawerId ? m_defaultDrawerId : firstDrawerId(m_destinations);
     ItemDialog dialog(item, m_destinations, this);
     if (dialog.exec() != QDialog::Accepted)
         return;
