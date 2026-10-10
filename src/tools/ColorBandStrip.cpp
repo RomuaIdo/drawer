@@ -30,6 +30,14 @@ QColor ColorBandStrip::qcolor(Color color)
     return Qt::white;
 }
 
+void ColorBandStrip::setType(ResistorCode::ResistorType type)
+{
+    if (type == m_type)
+        return;
+    m_type = type;
+    update();
+}
+
 void ColorBandStrip::setBands(const QList<Color> &bands)
 {
     m_bands = bands;
@@ -55,8 +63,10 @@ void ColorBandStrip::paintEvent(QPaintEvent *)
     p.drawLine(QPointF(body.right(), kDesignHeight / 2.0),
                QPointF(kDesignWidth, kDesignHeight / 2.0));
 
-    p.setPen(QPen(Qt::black, 1));
-    p.setBrush(qcolor(Color::None));
+    // Carbon film parts are tan; metal film parts have a light blue coating.
+    const bool metal = m_type == ResistorCode::ResistorType::MetalFilm;
+    p.setPen(QPen(metal ? QColor(0x4a, 0x6f, 0x94) : QColor(Qt::black), 1));
+    p.setBrush(metal ? QColor(0x9c, 0xc3, 0xe3) : qcolor(Color::None));
     p.drawRoundedRect(body, 14, 14);
 
     // Tolerance and tempco bands sit apart from the value bands, as on real parts.

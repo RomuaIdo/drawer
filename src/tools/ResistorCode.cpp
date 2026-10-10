@@ -57,6 +57,15 @@ Color multiplierColor(int exponent)
 
 } // namespace
 
+QString name(ResistorType type)
+{
+    switch (type) {
+    case ResistorType::CarbonFilm: return QObject::tr("Carbon film");
+    case ResistorType::MetalFilm: return QObject::tr("Metal film");
+    }
+    return {};
+}
+
 bool isValidBandCount(int bands)
 {
     return bands >= 4 && bands <= 6;

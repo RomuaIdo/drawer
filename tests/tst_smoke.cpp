@@ -117,7 +117,7 @@ private slots:
     {
         ResistorWidget widget;
         widget.show();
-        QComboBox *bandCount = widget.findChildren<QComboBox *>().first();
+        QComboBox *bandCount = widget.findChildren<QComboBox *>()[1];
         QLineEdit *value = widget.findChild<QLineEdit *>();
         const auto resultText = [&] {
             QStringList texts;
@@ -135,11 +135,39 @@ private slots:
         }
     }
 
+    void metalFilmResistorsGetFiveBandsAndTheBlueBody()
+    {
+        ResistorWidget widget;
+        widget.show();
+        auto *strip = widget.findChild<ColorBandStrip *>();
+        auto combos = widget.findChildren<QComboBox *>();
+        QComboBox *bandCount = combos[1]; // Created after the type selector.
+        QComboBox *type = combos[0];
+        QCOMPARE(type->itemText(0), QString("Carbon film"));
+        QCOMPARE(type->itemText(1), QString("Metal film"));
+        QCOMPARE(strip->type(), ResistorCode::ResistorType::CarbonFilm);
+        QCOMPARE(bandCount->currentData().toInt(), 4);
+
+        widget.findChild<QLineEdit *>()->setText("4.7k");
+        type->setCurrentIndex(1);
+        QCOMPARE(strip->type(), ResistorCode::ResistorType::MetalFilm);
+        QCOMPARE(bandCount->currentData().toInt(), 5);
+        QStringList texts;
+        for (QLabel *label : widget.findChildren<QLabel *>())
+            texts << label->text();
+        QVERIFY2(texts.join("|").contains("4.7 kΩ  ±1%"), qPrintable(texts.join("|")));
+
+        // The body color differs from the carbon film one.
+        const QImage metal = strip->grab().toImage();
+        type->setCurrentIndex(0);
+        QVERIFY(strip->grab().toImage() != metal);
+    }
+
     void resistorBandsSurviveBandCountChangeWithoutTypedValue()
     {
         ResistorWidget widget;
         widget.show();
-        QComboBox *bandCount = widget.findChildren<QComboBox *>().first();
+        QComboBox *bandCount = widget.findChildren<QComboBox *>()[1];
         // Defaults decode to 10 ohm; changing the count must not reset or lose that.
         bandCount->setCurrentIndex(1);
         bool found = false;
@@ -245,7 +273,7 @@ private slots:
         QVERIFY(!registry.toolsIn(ToolCategory::Auxiliary).empty());
 
         // Switching the band count rebuilds the selectors without crashing.
-        auto *bandCount = dialog.findChild<QComboBox *>();
+        auto *bandCount = dialog.findChildren<QComboBox *>()[1]; // After the type selector.
         QVERIFY(bandCount);
         for (int i = 0; i < bandCount->count(); ++i)
             bandCount->setCurrentIndex(i);
