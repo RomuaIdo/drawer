@@ -4,7 +4,9 @@
 #include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QHelpEvent>
 #include <QPainter>
+#include <QToolTip>
 #include <cmath>
 
 namespace {
@@ -36,6 +38,7 @@ CabinetView::CabinetView(QWidget *parent)
 {
     setMinimumSize(sizeHint());
     setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
 }
 
 void CabinetView::setLayouts(const QList<GroupLayout> &layouts)
@@ -95,6 +98,47 @@ CabinetView::Hit CabinetView::hitTest(const QPoint &pos) const
     return {};
 }
 
+bool CabinetView::event(QEvent *event)
+{
+    if (event->type() != QEvent::ToolTip)
+        return QWidget::event(event);
+
+    const auto *help = static_cast<QHelpEvent *>(event);
+    const Hit hit = hitTest(help->pos());
+    if (hit.drawer) {
+        QToolTip::showText(help->globalPos(),
+                           tr("%1 / %2 (%3)").arg(hit.layout->group.name, hit.drawer->label,
+                                                   drawerSizeToString(hit.drawer->size)),
+                           this);
+    } else {
+        QToolTip::hideText();
+    }
+    return true;
+}
+
+// Name tag in the top-left corner of a block, so the group is visible without any click.
+void CabinetView::drawGroupTag(QPainter &p, const DrawerGroup &group) const
+{
+    p.save();
+    QFont font = p.font();
+    font.setPointSizeF(font.pointSizeF() * 0.8);
+    font.setBold(true);
+    p.setFont(font);
+
+    const QRect block = groupRect(group);
+    const QFontMetrics metrics(font);
+    const QString text = metrics.elidedText(group.name, Qt::ElideRight, block.width() - 12);
+    const QRect tag(block.left() + 1, block.top() + 1, metrics.horizontalAdvance(text) + 8,
+                    metrics.height() + 2);
+
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0x30, 0x30, 0x38));
+    p.drawRoundedRect(tag, 3, 3);
+    p.setPen(Qt::white);
+    p.drawText(tag, Qt::AlignCenter, text);
+    p.restore();
+}
+
 void CabinetView::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
@@ -128,6 +172,8 @@ void CabinetView::paintEvent(QPaintEvent *)
                        sizeLetter(d.size));
         }
         // Block outline makes grouped drawers easy to tell apart.
+        drawGroupTag(p, group);
+
         // Dragged blocks are outlined red when the drop would overlap another block.
         const QColor outline = beingDragged && !m_dragValid ? QColor(0xd3, 0x20, 0x20) : Qt::black;
         p.setPen(QPen(outline, beingDragged ? 3 : 2));

@@ -19,7 +19,8 @@ public:
     explicit ItemPanel(IItemRepository &items, QWidget *parent = nullptr);
 
     // `destinations` are the drawers an item may be moved to.
-    void setDrawer(const Drawer &drawer, const QList<ItemDialog::DrawerChoice> &destinations);
+    void setDrawer(const Drawer &drawer, const QString &groupName,
+                   const QList<ItemDialog::DrawerChoice> &destinations);
     void clear();
 
 signals:

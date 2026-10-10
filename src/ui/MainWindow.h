@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QMainWindow>
 
 #include "core/Models.h"
@@ -59,5 +60,6 @@ private:
     ItemPanel *m_panel;
     QLineEdit *m_search;
     QList<ItemDialog::DrawerChoice> m_drawerChoices;
+    QHash<int, QString> m_groupNames; // Group id -> name, for the current cabinet.
     int m_selectedDrawerId = 0;
 };

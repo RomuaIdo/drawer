@@ -49,11 +49,12 @@ ItemPanel::ItemPanel(IItemRepository &items, QWidget *parent)
     clear();
 }
 
-void ItemPanel::setDrawer(const Drawer &drawer, const QList<ItemDialog::DrawerChoice> &destinations)
+void ItemPanel::setDrawer(const Drawer &drawer, const QString &groupName,
+                          const QList<ItemDialog::DrawerChoice> &destinations)
 {
     m_drawerId = drawer.id;
     m_destinations = destinations;
-    m_title->setText(tr("Items in drawer %1").arg(drawer.label));
+    m_title->setText(tr("Items in drawer %1 (group %2)").arg(drawer.label, groupName));
     reload();
 }
 

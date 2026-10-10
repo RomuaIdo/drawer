@@ -7,6 +7,8 @@
 #include "core/Layout.h"
 #include "core/Models.h"
 
+class QPainter;
+
 // Draws a cabinet as a grid of drawer groups and reports clicks on drawers.
 class CabinetView : public QWidget
 {
@@ -36,6 +38,7 @@ signals:
     void groupMoved(const DrawerGroup &group, double x, double y);
 
 protected:
+    bool event(QEvent *event) override;
     void paintEvent(QPaintEvent *) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -53,6 +56,7 @@ private:
     QRect cellRect(const DrawerGroup &group, int row, int col) const;
     QRect groupRect(const DrawerGroup &group) const;
     Hit hitTest(const QPoint &pos) const;
+    void drawGroupTag(QPainter &p, const DrawerGroup &group) const;
     void updateDrag(const QPoint &pos);
     void cancelDrag();
     QList<DrawerGroup> otherGroups(int excludedId) const;
