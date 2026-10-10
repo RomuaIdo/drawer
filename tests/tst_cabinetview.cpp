@@ -116,6 +116,45 @@ private slots:
         QVERIFY(m_view->selectedGroups().isEmpty());
     }
 
+    void rightButtonBandSelectsToo()
+    {
+        mouseEvent(m_view.get(), QEvent::MouseButtonPress, QPoint(700, 150), Qt::RightButton,
+                   Qt::RightButton);
+        mouseEvent(m_view.get(), QEvent::MouseMove, QPoint(20, 20), Qt::NoButton, Qt::RightButton);
+        mouseEvent(m_view.get(), QEvent::MouseButtonRelease, QPoint(20, 20), Qt::RightButton,
+                   Qt::NoButton);
+        QCOMPARE(m_view->selectedGroups(), (QSet<int>{1, 2}));
+    }
+
+    void bandIsRepaintedOnEveryMove()
+    {
+        m_view->show();
+        QVERIFY(QTest::qWaitForWindowExposed(m_view.get()));
+        mouseEvent(m_view.get(), QEvent::MouseButtonPress, QPoint(700, 500), Qt::LeftButton,
+                   Qt::LeftButton);
+        // Moves over empty space, where the selection does not change, must still repaint.
+        const auto bandPixels = [&](QPoint corner) {
+            mouseEvent(m_view.get(), QEvent::MouseMove, corner, Qt::NoButton, Qt::LeftButton);
+            QCoreApplication::sendPostedEvents(m_view.get(), QEvent::UpdateRequest);
+            return m_view->grab().toImage();
+        };
+        const QImage small = bandPixels(QPoint(650, 450));
+        const QImage large = bandPixels(QPoint(560, 380));
+        QVERIFY(small != large);
+        mouseEvent(m_view.get(), QEvent::MouseButtonRelease, QPoint(560, 380), Qt::LeftButton,
+                   Qt::NoButton);
+    }
+
+    void selectedDrawerOutlineIsNotCoveredByTheBlockOutline()
+    {
+        // The first column sits right under the block outline; the blue line must stay on top.
+        m_view->setSelectedDrawer(100 + 100); // Block 2, first drawer.
+        const QImage image = m_view->grab().toImage();
+        const int left = 12 + 4 * 72 + 2; // Left edge of the padded cell.
+        const QColor edge = image.pixelColor(left, 12 + 26);
+        QVERIFY2(edge.blue() > 200 && edge.red() < 80, qPrintable(edge.name()));
+    }
+
     void draggingASelectionMovesEveryBlock()
     {
         click(cellCenter(0, 0));
