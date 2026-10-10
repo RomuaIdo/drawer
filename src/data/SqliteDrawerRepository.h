@@ -15,6 +15,7 @@ public:
     void moveGroups(const QList<DrawerGroup> &groups) override;
     void resizeGroup(const DrawerGroup &group, const QList<DrawerGroup> &displaced) override;
     int itemsLostByResize(int groupId, int rows, int cols) const override;
+    void removeDrawer(int drawerId) override;
     void removeGroup(int id) override;
     QList<Drawer> drawersOf(int groupId) const override;
     void updateDrawer(const Drawer &drawer) override;

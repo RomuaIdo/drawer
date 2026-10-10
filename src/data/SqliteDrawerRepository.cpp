@@ -63,12 +63,20 @@ void SqliteDrawerRepository::resizeGroup(const DrawerGroup &group,
 {
     SqlUtil::Transaction tx(m_db);
 
+    QSqlQuery before = SqlUtil::exec(m_db, "SELECT rows, cols FROM drawer_groups WHERE id = ?",
+                                     {group.id});
+    before.next();
+    const int oldRows = before.value(0).toInt();
+    const int oldCols = before.value(1).toInt();
+
     SqlUtil::exec(m_db, "DELETE FROM drawers WHERE group_id = ? AND (row >= ? OR col >= ?)",
                   {group.id, group.rows, group.cols});
 
-    // Existing cells stay as they are; only the missing ones are created.
+    // Only cells outside the old size are new; drawers deleted earlier stay deleted.
     for (int r = 0; r < group.rows; ++r) {
         for (int c = 0; c < group.cols; ++c) {
+            if (r < oldRows && c < oldCols)
+                continue;
             SqlUtil::exec(m_db,
                 "INSERT OR IGNORE INTO drawers (group_id, row, col, size, label) "
                 "VALUES (?, ?, ?, ?, ?)",
@@ -98,6 +106,22 @@ int SqliteDrawerRepository::itemsLostByResize(int groupId, int rows, int cols) c
         {groupId, rows, cols});
     q.next();
     return q.value(0).toInt();
+}
+
+void SqliteDrawerRepository::removeDrawer(int drawerId)
+{
+    SqlUtil::Transaction tx(m_db);
+    QSqlQuery q = SqlUtil::exec(m_db, "SELECT group_id FROM drawers WHERE id = ?", {drawerId});
+    if (!q.next())
+        return;
+    const int groupId = q.value(0).toInt();
+
+    SqlUtil::exec(m_db, "DELETE FROM drawers WHERE id = ?", {drawerId});
+    QSqlQuery left = SqlUtil::exec(m_db, "SELECT COUNT(*) FROM drawers WHERE group_id = ?", {groupId});
+    left.next();
+    if (left.value(0).toInt() == 0)
+        SqlUtil::exec(m_db, "DELETE FROM drawer_groups WHERE id = ?", {groupId});
+    tx.commit();
 }
 
 void SqliteDrawerRepository::removeGroup(int id)

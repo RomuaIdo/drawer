@@ -173,6 +173,25 @@ private slots:
         QVERIFY_EXCEPTION_THROWN(OrganizationJson::read(bytes(file)), OrganizationFormatError);
     }
 
+    void holesSurviveAFileRoundTrip()
+    {
+        Database source(":memory:");
+        populate(source);
+        SqliteDrawerRepository drawers(source.connection());
+        SqliteCabinetRepository cabinets(source.connection());
+        const DrawerGroup group = drawers.groupsOf(cabinets.all().first().id).first();
+        drawers.removeDrawer(drawers.drawersOf(group.id)[1].id); // Delete R1C2 of the 2x2 block.
+
+        const QByteArray file = OrganizationJson::write(SqliteOrganizationRepository(source.connection()).load());
+        Database target(":memory:");
+        SqliteOrganizationRepository repo(target.connection());
+        repo.import(OrganizationJson::read(file));
+
+        const GroupEntry &imported = repo.load().cabinets[0].groups[0];
+        QCOMPARE(imported.drawers.size(), 3);
+        QCOMPARE(OrganizationJson::write(repo.load()), file);
+    }
+
     void failedImportChangesNothing()
     {
         Database db(":memory:");

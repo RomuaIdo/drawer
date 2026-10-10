@@ -32,6 +32,9 @@ public:
     // no longer exist lose their drawers and items. `displaced` blocks (only their
     // position is used) are moved in the same transaction.
     virtual void resizeGroup(const DrawerGroup &group, const QList<DrawerGroup> &displaced) = 0;
+    // Deletes one drawer (and its items), leaving a hole in its block. Deleting the last
+    // drawer of a block deletes the block too.
+    virtual void removeDrawer(int drawerId) = 0;
     // Items that resizing the group to rows x cols would delete.
     virtual int itemsLostByResize(int groupId, int rows, int cols) const = 0;
     virtual void removeGroup(int id) = 0;

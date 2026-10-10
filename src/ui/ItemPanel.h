@@ -23,6 +23,7 @@ public:
                    const QList<ItemDialog::DrawerChoice> &destinations);
     void clear();
     void selectAll();
+    void removeSelected() { removeItem(); } // Asks first.
     QList<int> selectedItemIds() const;
     // Reloads the drawer's items, keeping the selection.
     void reload();

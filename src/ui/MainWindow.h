@@ -56,6 +56,8 @@ private:
     void editCut();
     void editPaste();
     void editSelectAll();
+    void editDelete();
+    void deleteDrawer(int drawerId);
     void undo();
     void redo();
     void afterHistoryChange(const QString &message);
