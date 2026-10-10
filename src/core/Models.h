@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMetaType>
+#include <optional>
 #include <QString>
 
 #include "DrawerSize.h"
@@ -46,6 +47,10 @@ struct Item {
     QString package;
     int quantity = 0;
     QString notes;
+    std::optional<int> minStock; // Alert threshold; unset means no alert.
+
+    // True once the quantity reaches or drops below the minimum stock.
+    bool isLowStock() const { return minStock && quantity <= *minStock; }
 };
 
 // One flattened line of the cabinet mapping; empty drawers have no item fields.
@@ -62,5 +67,7 @@ struct MappingRow {
     QString package;
     int quantity = 0;
     QString notes;
+    std::optional<int> minStock;
+    bool lowStock = false;
     bool hasItem = false;
 };

@@ -49,6 +49,10 @@ public:
     virtual Item add(Item item) = 0;
     virtual void update(const Item &item) = 0; // Also used to move an item between drawers.
     virtual void remove(int id) = 0;
+    // Items at or below their minimum stock, across every cabinet.
+    virtual QList<Item> lowStock() const = 0;
+    // Adds `delta` to each item's quantity, never going below zero.
+    virtual void adjustQuantity(const QList<int> &ids, int delta) = 0;
 };
 
 // Read-only flattened view used by exporters.

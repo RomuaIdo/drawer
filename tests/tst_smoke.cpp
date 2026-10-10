@@ -1,5 +1,8 @@
 #include <QComboBox>
 #include <QLabel>
+#include <QPushButton>
+#include <QSignalSpy>
+#include <QTableView>
 #include <QLineEdit>
 #include <QtTest>
 
@@ -10,6 +13,7 @@
 #include "data/SqliteMappingRepository.h"
 #include "data/SqliteOrganizationRepository.h"
 #include "export/CsvExporter.h"
+#include "ui/ItemPanel.h"
 #include "tools/CapacitorStrip.h"
 #include "tools/ColorBandStrip.h"
 #include "tools/CapacitorWidget.h"
@@ -105,6 +109,46 @@ private slots:
         for (QLabel *label : widget.findChildren<QLabel *>())
             found = found || label->text().startsWith("10 Ω");
         QVERIFY(found);
+    }
+
+    void quickQuantityButtonsAdjustTheSelectedItems()
+    {
+        Database db(":memory:");
+        SqliteCabinetRepository cabinets(db.connection());
+        SqliteDrawerRepository drawers(db.connection());
+        SqliteItemRepository items(db.connection());
+        DrawerGroup g;
+        g.cabinetId = cabinets.add({0, "C", ""}).id;
+        g.name = "G";
+        g = drawers.addGroup(g);
+        const Drawer drawer = drawers.drawersOf(g.id).first();
+        items.add({0, drawer.id, "Resistor", "", "", "", 3, "", 2});
+
+        ItemPanel panel(items);
+        panel.setDrawer(drawer, "G", {});
+        panel.show();
+        QSignalSpy changed(&panel, &ItemPanel::itemsChanged);
+        auto *table = panel.findChild<QTableView *>();
+        table->selectRow(0);
+
+        QPushButton *decrease = nullptr;
+        QPushButton *increase = nullptr;
+        for (QPushButton *button : panel.findChildren<QPushButton *>()) {
+            if (button->text() == "+")
+                increase = button;
+            else if (button->toolTip().startsWith("Take"))
+                decrease = button;
+        }
+        QVERIFY(increase && decrease);
+
+        decrease->click();
+        QCOMPARE(items.inDrawer(drawer.id).first().quantity, 2);
+        QVERIFY(items.inDrawer(drawer.id).first().isLowStock());
+        increase->click();
+        increase->click();
+        QCOMPARE(items.inDrawer(drawer.id).first().quantity, 4);
+        QCOMPARE(changed.count(), 3);
+        QVERIFY(table->selectionModel()->hasSelection()); // Selection survives the reload.
     }
 
     void toolsDialogBuildsAllTools()

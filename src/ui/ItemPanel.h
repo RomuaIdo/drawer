@@ -22,15 +22,18 @@ public:
     void setDrawer(const Drawer &drawer, const QString &groupName,
                    const QList<ItemDialog::DrawerChoice> &destinations);
     void clear();
+    // Reloads the drawer's items, keeping the selection.
+    void reload();
 
 signals:
     void itemsChanged();
 
 private:
-    void reload();
     void addItem();
     void editItem();
     void removeItem();
+    void adjustQuantity(int delta);
+    QList<int> selectedItemIds() const;
     void updateButtons();
 
     IItemRepository &m_items;
@@ -40,6 +43,8 @@ private:
     QPushButton *m_add;
     QPushButton *m_edit;
     QPushButton *m_remove;
+    QPushButton *m_decrease;
+    QPushButton *m_increase;
     int m_drawerId = 0;
     QList<ItemDialog::DrawerChoice> m_destinations;
 };

@@ -1,7 +1,18 @@
 #include "ItemTableModel.h"
 
+#include <QColor>
+
 namespace {
-enum Column { Name, Category, Value, Package, Quantity, Notes, ColumnCount };
+enum Column { Name, Category, Value, Package, Quantity, MinStock, Notes, ColumnCount };
+}
+
+int ItemTableModel::rowOfItem(int itemId) const
+{
+    for (int row = 0; row < m_items.size(); ++row) {
+        if (m_items[row].id == itemId)
+            return row;
+    }
+    return -1;
 }
 
 void ItemTableModel::setItems(const QList<Item> &items)
@@ -26,8 +37,13 @@ QVariant ItemTableModel::data(const QModelIndex &index, int role) const
     if (!index.isValid())
         return {};
     const Item &item = m_items.at(index.row());
-    if (role == Qt::TextAlignmentRole && index.column() == Quantity)
+    if (role == Qt::TextAlignmentRole && (index.column() == Quantity || index.column() == MinStock))
         return int(Qt::AlignRight | Qt::AlignVCenter);
+    // Items at or below their minimum stock stand out.
+    if (role == Qt::BackgroundRole && item.isLowStock())
+        return QColor(0xd3, 0x20, 0x20, 60);
+    if (role == Qt::ToolTipRole && item.isLowStock())
+        return tr("Low stock: %1 left, minimum %2").arg(item.quantity).arg(*item.minStock);
     if (role != Qt::DisplayRole)
         return {};
     switch (index.column()) {
@@ -36,6 +52,7 @@ QVariant ItemTableModel::data(const QModelIndex &index, int role) const
     case Value: return item.value;
     case Package: return item.package;
     case Quantity: return item.quantity;
+    case MinStock: return item.minStock ? QVariant(*item.minStock) : QVariant();
     case Notes: return item.notes;
     }
     return {};
@@ -51,6 +68,7 @@ QVariant ItemTableModel::headerData(int section, Qt::Orientation orientation, in
     case Value: return tr("Value");
     case Package: return tr("Package");
     case Quantity: return tr("Qty");
+    case MinStock: return tr("Min");
     case Notes: return tr("Notes");
     }
     return {};

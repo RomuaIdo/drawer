@@ -177,6 +177,49 @@ private slots:
         QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().color, QString("#112233"));
     }
 
+    void minStockIsStoredAndFlagsLowStock()
+    {
+        const Drawer d = singleDrawer();
+        Item ok = m_items->add({0, d.id, "Plenty", "", "", "", 50, "", 10});
+        Item low = m_items->add({0, d.id, "Few", "", "", "", 5, "", 5}); // At the limit.
+        m_items->add({0, d.id, "No alert", "", "", "", 0, ""});
+
+        QVERIFY(!ok.isLowStock());
+        QVERIFY(low.isLowStock());
+        QCOMPARE(*m_items->inDrawer(d.id)[0].minStock, 5); // "Few" sorts first.
+        QVERIFY(!m_items->search("No alert").first().minStock);
+
+        const QList<Item> flagged = m_items->lowStock();
+        QCOMPARE(flagged.size(), 1);
+        QCOMPARE(flagged[0].name, QString("Few"));
+
+        // Removing the threshold clears the flag.
+        low.minStock.reset();
+        m_items->update(low);
+        QVERIFY(m_items->lowStock().isEmpty());
+    }
+
+    void adjustQuantityNeverGoesBelowZero()
+    {
+        const Drawer d = singleDrawer();
+        const Item a = m_items->add({0, d.id, "A", "", "", "", 2, ""});
+        const Item b = m_items->add({0, d.id, "B", "", "", "", 10, ""});
+        m_items->adjustQuantity({a.id, b.id}, +1);
+        QCOMPARE(m_items->search("A").first().quantity, 3);
+        m_items->adjustQuantity({a.id, b.id}, -5);
+        QCOMPARE(m_items->search("A").first().quantity, 0);
+        QCOMPARE(m_items->search("B").first().quantity, 6);
+    }
+
+    void dropsAlertWhenItReachesTheMinimum()
+    {
+        const Drawer d = singleDrawer();
+        const Item item = m_items->add({0, d.id, "Cap", "", "", "", 6, "", 5});
+        QVERIFY(m_items->lowStock().isEmpty());
+        m_items->adjustQuantity({item.id}, -1);
+        QCOMPARE(m_items->lowStock().size(), 1);
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();
@@ -228,7 +271,7 @@ private slots:
     {
         QSqlQuery q(m_db->connection());
         QVERIFY(q.exec("PRAGMA user_version") && q.next());
-        QCOMPARE(q.value(0).toInt(), 2);
+        QCOMPARE(q.value(0).toInt(), 3);
     }
 
 private:

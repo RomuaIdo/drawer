@@ -58,6 +58,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_view, &CabinetView::drawerSelected, this, &MainWindow::selectDrawer);
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
     connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::applySearch);
+    connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::updateLowStock);
     connect(m_view, &CabinetView::drawerActivated, this, &MainWindow::editDrawer);
     connect(m_view, &CabinetView::groupsMoved, this, &MainWindow::moveGroups);
     connect(m_view, &CabinetView::groupContextRequested, this, &MainWindow::showGroupMenu);
@@ -146,6 +147,7 @@ void MainWindow::reloadView()
     m_selectedDrawerId = 0;
     m_panel->clear();
     applySearch();
+    updateLowStock();
 
     // Keep the selection across reloads that did not remove the drawer.
     for (const auto &l : layouts) {
@@ -246,6 +248,16 @@ void MainWindow::selectDrawer(const Drawer &drawer)
     m_panel->setDrawer(drawer, groupName, m_drawerChoices);
     statusBar()->showMessage(tr("Group %1, drawer %2 (%3)")
                                  .arg(groupName, drawer.label, drawerSizeToString(drawer.size)));
+}
+
+void MainWindow::updateLowStock()
+{
+    QSet<int> drawerIds;
+    guarded([&] {
+        for (const Item &item : m_items.lowStock())
+            drawerIds.insert(item.drawerId);
+    });
+    m_view->setLowStockDrawers(drawerIds);
 }
 
 // Highlights every drawer holding an item that matches the search text.

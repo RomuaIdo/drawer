@@ -50,6 +50,7 @@ const QStringList kMigrations = {
     CREATE INDEX idx_items_drawer ON items(drawer_id);
     )",
     "ALTER TABLE drawer_groups ADD COLUMN color TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE items ADD COLUMN min_stock INTEGER", // NULL: no alert.
 };
 
 } // namespace

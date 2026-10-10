@@ -39,7 +39,7 @@ private slots:
             g.defaultSize = DrawerSize::Small;
             g = drawers.addGroup(g);
             const Drawer first = drawers.drawersOf(g.id).first();
-            items.add({0, first.id, "Resistor, 1%", "Passive", "4.7k", "0603", 50, ""});
+            items.add({0, first.id, "Resistor, 1%", "Passive", "4.7k", "0603", 50, "", 50});
 
             QByteArray bytes;
             QBuffer buffer(&bytes);
@@ -48,8 +48,8 @@ private slots:
 
             const QStringList lines = QString::fromUtf8(bytes).split("\r\n", Qt::SkipEmptyParts);
             QCOMPARE(lines.size(), 3); // Header, item row, empty drawer row.
-            QCOMPARE(lines[1], QString("Bench,Block,1,1,R1C1,small,\"Resistor, 1%\",Passive,4.7k,0603,50,"));
-            QCOMPARE(lines[2], QString("Bench,Block,1,2,R1C2,small,,,,,,"));
+            QCOMPARE(lines[1], QString("Bench,Block,1,1,R1C1,small,\"Resistor, 1%\",Passive,4.7k,0603,50,50,yes,"));
+            QCOMPARE(lines[2], QString("Bench,Block,1,2,R1C2,small,,,,,,,,"));
         }
     }
 

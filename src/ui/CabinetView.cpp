@@ -72,6 +72,12 @@ void CabinetView::setSelectedDrawer(int drawerId)
     update();
 }
 
+void CabinetView::setLowStockDrawers(const QSet<int> &drawerIds)
+{
+    m_lowStock = drawerIds;
+    update();
+}
+
 void CabinetView::setHighlightedDrawers(const QSet<int> &drawerIds)
 {
     m_highlighted = drawerIds;
@@ -122,10 +128,11 @@ bool CabinetView::event(QEvent *event)
     const auto *help = static_cast<QHelpEvent *>(event);
     const Hit hit = hitTest(help->pos());
     if (hit.drawer) {
-        QToolTip::showText(help->globalPos(),
-                           tr("%1 / %2 (%3)").arg(hit.layout->group.name, hit.drawer->label,
-                                                   drawerSizeToString(hit.drawer->size)),
-                           this);
+        QString text = tr("%1 / %2 (%3)").arg(hit.layout->group.name, hit.drawer->label,
+                                              drawerSizeToString(hit.drawer->size));
+        if (m_lowStock.contains(hit.drawer->id))
+            text += tr("\nLow stock");
+        QToolTip::showText(help->globalPos(), text, this);
     } else {
         QToolTip::hideText();
     }
@@ -194,6 +201,15 @@ void CabinetView::paintEvent(QPaintEvent *)
                 p.setPen(QPen(QColor(0xd8, 0x1b, 0x60), 3));
                 p.setBrush(Qt::NoBrush);
                 p.drawRoundedRect(cell.adjusted(2, 2, -2, -2), 3, 3);
+            }
+
+            if (m_lowStock.contains(d.id)) {
+                const QRect badge(cell.right() - 15, cell.top() + 3, 13, 13);
+                p.setPen(Qt::NoPen);
+                p.setBrush(QColor(0xd3, 0x20, 0x20));
+                p.drawEllipse(badge);
+                p.setPen(Qt::white);
+                p.drawText(badge, Qt::AlignCenter, "!");
             }
 
             // Keep text readable on custom, possibly dark, colors.

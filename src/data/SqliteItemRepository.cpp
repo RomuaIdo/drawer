@@ -4,13 +4,21 @@
 
 namespace {
 
-const char *kColumns = "id, drawer_id, name, category, value, package, quantity, notes";
+const char *kColumns = "id, drawer_id, name, category, value, package, quantity, notes, min_stock";
 
 Item readItem(const QSqlQuery &q)
 {
-    return {q.value(0).toInt(), q.value(1).toInt(), q.value(2).toString(),
-            q.value(3).toString(), q.value(4).toString(), q.value(5).toString(),
-            q.value(6).toInt(), q.value(7).toString()};
+    Item item{q.value(0).toInt(), q.value(1).toInt(), q.value(2).toString(),
+              q.value(3).toString(), q.value(4).toString(), q.value(5).toString(),
+              q.value(6).toInt(), q.value(7).toString(), std::nullopt};
+    if (!q.value(8).isNull())
+        item.minStock = q.value(8).toInt();
+    return item;
+}
+
+QVariant minStockValue(const Item &item)
+{
+    return item.minStock ? QVariant(*item.minStock) : QVariant(QMetaType::fromType<int>());
 }
 
 QList<Item> readAll(QSqlQuery q)
@@ -50,10 +58,10 @@ QList<Item> SqliteItemRepository::search(const QString &text) const
 Item SqliteItemRepository::add(Item item)
 {
     QSqlQuery q = SqlUtil::exec(m_db,
-        "INSERT INTO items (drawer_id, name, category, value, package, quantity, notes) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO items (drawer_id, name, category, value, package, quantity, notes, "
+        "min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         {item.drawerId, item.name, item.category, item.value, item.package, item.quantity,
-         item.notes});
+         item.notes, minStockValue(item)});
     item.id = q.lastInsertId().toInt();
     return item;
 }
@@ -62,12 +70,28 @@ void SqliteItemRepository::update(const Item &item)
 {
     SqlUtil::exec(m_db,
         "UPDATE items SET drawer_id = ?, name = ?, category = ?, value = ?, package = ?, "
-        "quantity = ?, notes = ? WHERE id = ?",
+        "quantity = ?, notes = ?, min_stock = ? WHERE id = ?",
         {item.drawerId, item.name, item.category, item.value, item.package, item.quantity,
-         item.notes, item.id});
+         item.notes, minStockValue(item), item.id});
 }
 
 void SqliteItemRepository::remove(int id)
 {
     SqlUtil::exec(m_db, "DELETE FROM items WHERE id = ?", {id});
+}
+
+QList<Item> SqliteItemRepository::lowStock() const
+{
+    return readAll(SqlUtil::exec(m_db,
+        QString("SELECT %1 FROM items WHERE min_stock IS NOT NULL AND quantity <= min_stock "
+                "ORDER BY name").arg(kColumns)));
+}
+
+void SqliteItemRepository::adjustQuantity(const QList<int> &ids, int delta)
+{
+    SqlUtil::Transaction tx(m_db);
+    for (int id : ids)
+        SqlUtil::exec(m_db, "UPDATE items SET quantity = MAX(0, quantity + ?) WHERE id = ?",
+                      {delta, id});
+    tx.commit();
 }

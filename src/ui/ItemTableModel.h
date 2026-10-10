@@ -13,6 +13,7 @@ public:
 
     void setItems(const QList<Item> &items);
     const Item &itemAt(int row) const { return m_items.at(row); }
+    int rowOfItem(int itemId) const; // -1 if absent.
 
     int rowCount(const QModelIndex &parent = {}) const override;
     int columnCount(const QModelIndex &parent = {}) const override;
