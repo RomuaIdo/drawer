@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 
 #include "CapacitorCode.h"
+#include "CapacitorStrip.h"
 #include "Engineering.h"
 
 namespace {
@@ -23,6 +24,7 @@ QLabel *makeResultLabel()
 
 CapacitorWidget::CapacitorWidget(QWidget *parent)
     : QWidget(parent)
+    , m_strip(new CapacitorStrip)
     , m_markingInput(new QLineEdit)
     , m_decoded(makeResultLabel())
     , m_valueInput(new QLineEdit)
@@ -42,6 +44,7 @@ CapacitorWidget::CapacitorWidget(QWidget *parent)
     encodeForm->addRow(m_encoded);
 
     auto *layout = new QVBoxLayout(this);
+    layout->addWidget(m_strip);
     layout->addWidget(decodeBox);
     layout->addWidget(encodeBox);
     layout->addStretch();
@@ -55,13 +58,16 @@ void CapacitorWidget::decodeMarking()
     const QString text = m_markingInput->text().trimmed();
     if (text.isEmpty()) {
         m_decoded->clear();
+        m_strip->setMarking({});
         return;
     }
     const auto value = CapacitorCode::decode(text);
     if (!value) {
         m_decoded->setText(tr("Invalid marking"));
+        m_strip->setMarking({});
         return;
     }
+    m_strip->setMarking(text.toUpper());
     QString result = Engineering::format(value->farads(), "F");
     if (value->tolerancePercent)
         result += QString("  ±%1%").arg(*value->tolerancePercent);
@@ -75,13 +81,16 @@ void CapacitorWidget::encodeValue()
     const QString text = m_valueInput->text().trimmed();
     if (text.isEmpty()) {
         m_encoded->clear();
+        m_strip->setMarking({});
         return;
     }
     const auto farads = Engineering::parse(text);
     if (!farads) {
         m_encoded->setText(tr("Not a valid value"));
+        m_strip->setMarking({});
         return;
     }
     const auto code = CapacitorCode::encode(*farads * 1e12);
     m_encoded->setText(code ? *code : tr("No 3-digit code for this value"));
+    m_strip->setMarking(code.value_or(QString()));
 }

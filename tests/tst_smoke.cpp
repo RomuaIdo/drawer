@@ -1,4 +1,5 @@
 #include <QComboBox>
+#include <QLineEdit>
 #include <QtTest>
 
 #include "data/Database.h"
@@ -8,6 +9,8 @@
 #include "data/SqliteMappingRepository.h"
 #include "data/SqliteOrganizationRepository.h"
 #include "export/CsvExporter.h"
+#include "tools/CapacitorStrip.h"
+#include "tools/CapacitorWidget.h"
 #include "tools/ToolRegistry.h"
 #include "tools/ToolsDialog.h"
 #include "ui/MainWindow.h"
@@ -28,6 +31,25 @@ private slots:
         CsvExporter exporter;
         MainWindow window({cabinets, drawers, items, mapping, organization}, exporter);
         QCOMPARE(window.windowTitle(), QString("Drawer"));
+    }
+
+    void capacitorDrawingFollowsInput()
+    {
+        CapacitorWidget widget;
+        widget.show();
+        auto *strip = widget.findChild<CapacitorStrip *>();
+        auto inputs = widget.findChildren<QLineEdit *>();
+        QVERIFY(strip);
+        QCOMPARE(inputs.size(), 2);
+
+        inputs[0]->setText("104k");
+        QCOMPARE(strip->marking(), QString("104K"));
+        inputs[0]->setText("zzz");
+        QVERIFY(strip->marking().isEmpty());
+
+        inputs[1]->setText("22n");
+        QCOMPARE(strip->marking(), QString("223"));
+        QVERIFY(!strip->grab().isNull()); // Painting does not crash.
     }
 
     void toolsDialogBuildsAllTools()
