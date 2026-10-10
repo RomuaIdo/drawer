@@ -3,6 +3,7 @@
 #include <QList>
 
 #include "core/Models.h"
+#include "core/Organization.h"
 
 // Persistence interfaces. All methods throw DatabaseError on failure.
 
@@ -51,10 +52,22 @@ public:
     virtual QList<MappingRow> rows() const = 0;
 };
 
+
+// Whole-database snapshot, for backup and sharing.
+class IOrganizationRepository
+{
+public:
+    virtual ~IOrganizationRepository() = default;
+    virtual Organization load() const = 0;
+    // Adds everything as new records in a single transaction; existing data is untouched.
+    virtual void import(const Organization &organization) = 0;
+};
+
 // Bundles the repositories handed to the UI.
 struct Repositories {
     ICabinetRepository &cabinets;
     IDrawerRepository &drawers;
     IItemRepository &items;
     IMappingRepository &mapping;
+    IOrganizationRepository &organization;
 };

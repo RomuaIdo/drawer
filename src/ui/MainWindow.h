@@ -35,6 +35,8 @@ private:
     void deleteGroup(const DrawerGroup &group);
     void moveGroup(const DrawerGroup &group, double x, double y);
     void editDrawer(const Drawer &drawer);
+    void exportOrganization();
+    void importOrganization();
     void showTools();
     void exportMapping();
     void selectDrawer(const Drawer &drawer);
@@ -48,6 +50,7 @@ private:
     IDrawerRepository &m_drawers;
     IItemRepository &m_items;
     IMappingRepository &m_mapping;
+    IOrganizationRepository &m_organization;
     const IExporter &m_exporter;
     ToolRegistry m_tools;
     ToolsDialog *m_toolsDialog = nullptr;

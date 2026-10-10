@@ -23,7 +23,8 @@ ctest --test-dir build --output-on-failure
 - Double click a drawer to edit its label and size (small, medium, large); click it to manage its items.
 - Drag a block to move it; it snaps to the grid and turns red where it would overlap. Right click a block and enable "Move freely" to drop it anywhere. Esc cancels a drag.
 - The search box highlights every drawer holding a matching item.
-- File > Export writes the full mapping, including empty drawers, to a CSV file.
+- File > Export mapping writes the full mapping, including empty drawers, to a CSV file.
+- File > Export organization saves cabinets, blocks, drawers and items to a JSON file; File > Import organization adds the cabinets from such a file to the current data (existing cabinets are kept, and an invalid file changes nothing).
 - Tools > Electronics tools opens the calculators.
 
 Data is stored in `drawer.db` under the application data directory (`~/.local/share/Drawer` on Linux).
