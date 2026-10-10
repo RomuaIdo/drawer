@@ -94,8 +94,9 @@ private slots:
         QVERIFY(model.data(model.index(1, 0), Qt::BackgroundRole).isValid());
         QVERIFY(model.data(model.index(2, 0), Qt::BackgroundRole).isValid());
         QVERIFY(!model.data(model.index(0, 0), Qt::BackgroundRole).isValid());
-        QCOMPARE(model.data(model.index(1, AllItemsModel::Quantity), Qt::ToolTipRole).toString(),
-                 QString("10/14"));
+        QCOMPARE(model.data(model.index(1, AllItemsModel::Quantity), Qt::DisplayRole).toString(),
+                 QString("10/14")); // Stored elsewhere too: this entry over the total.
+        QCOMPARE(model.data(model.index(0, AllItemsModel::Quantity), Qt::DisplayRole).toInt(), 2);
     }
 
     void panelReportsTheDrawersOfTheSelectedRow()

@@ -1,5 +1,7 @@
 #include "AllItemsModel.h"
 
+#include "LocationsText.h"
+
 #include <QColor>
 #include <QHash>
 #include <QSet>
@@ -106,8 +108,9 @@ QVariant AllItemsModel::data(const QModelIndex &index, int role) const
         return int(Qt::AlignRight | Qt::AlignVCenter);
     if (role == Qt::BackgroundRole && item.isLowStock())
         return QColor(0xd3, 0x20, 0x20, 60);
-    if (role == Qt::ToolTipRole && index.column() == Quantity && item.stockTotal() != row.quantity)
-        return QString("%1/%2").arg(row.quantity).arg(item.stockTotal());
+    if (role == Qt::ToolTipRole && index.column() == Quantity && !m_grouped
+        && item.stockTotal() != row.quantity && m_locations)
+        return LocationsText::tooltip(m_locations(item.id));
     if (role != Qt::DisplayRole)
         return {};
 
@@ -116,7 +119,11 @@ QVariant AllItemsModel::data(const QModelIndex &index, int role) const
     case Category: return item.category;
     case Value: return item.value;
     case Package: return item.package;
-    case Quantity: return row.quantity;
+    case Quantity:
+        // One entry of an item stored elsewhere too reads "4/10"; grouped rows show the total.
+        return !m_grouped && item.stockTotal() != row.quantity
+            ? QVariant(QString("%1/%2").arg(row.quantity).arg(item.stockTotal()))
+            : QVariant(row.quantity);
     case MinStock: return item.minStock ? QVariant(*item.minStock) : QVariant();
     case Location:
         if (m_grouped)

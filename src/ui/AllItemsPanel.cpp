@@ -19,6 +19,13 @@ AllItemsPanel::AllItemsPanel(IItemRepository &items, QWidget *parent)
     m_group->setToolTip(tr("Show an item stored in several drawers on a single row"));
     m_group->setChecked(false);
 
+    m_model->setLocationProvider([this](int itemId) {
+        try {
+            return m_items.locationsOf(itemId);
+        } catch (const DatabaseError &) {
+            return QList<ItemLocation>();
+        }
+    });
     m_table->setModel(m_model);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
