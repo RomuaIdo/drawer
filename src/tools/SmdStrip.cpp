@@ -19,8 +19,9 @@ void SmdStrip::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    const double chipWidth = std::min(width() * 0.6, 220.0);
-    const double chipHeight = chipWidth * 0.5;
+    // 2:1 chip that always fits inside the widget.
+    const double chipHeight = std::min(height() * 0.8, std::min(width() * 0.6, 220.0) * 0.5);
+    const double chipWidth = chipHeight * 2;
     const QRectF chip((width() - chipWidth) / 2, (height() - chipHeight) / 2, chipWidth, chipHeight);
     const double terminalWidth = chipWidth * 0.14;
 

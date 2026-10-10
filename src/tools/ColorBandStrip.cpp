@@ -7,7 +7,7 @@ using ResistorCode::Color;
 ColorBandStrip::ColorBandStrip(QWidget *parent)
     : QWidget(parent)
 {
-    setMinimumHeight(70);
+    setMinimumHeight(kDesignHeight);
 }
 
 QColor ColorBandStrip::qcolor(Color color)
@@ -36,15 +36,38 @@ void ColorBandStrip::setBands(const QList<Color> &bands)
     update();
 }
 
+namespace {
+constexpr double kMaxScale = 2.5;
+
+double scaleFor(const QSize &size)
+{
+    return std::min({double(size.width()) / ColorBandStrip::kDesignWidth,
+                     double(size.height()) / ColorBandStrip::kDesignHeight, kMaxScale});
+}
+} // namespace
+
+int ColorBandStrip::heightForWidth(int width) const
+{
+    return int(std::min(double(width) / kDesignWidth, kMaxScale) * kDesignHeight);
+}
+
 void ColorBandStrip::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    const QRect body(30, height() / 2 - 22, width() - 60, 44);
+    // Draw in design units, centered, with the proportions kept at any window size.
+    const double scale = scaleFor(size());
+    p.translate(width() / 2.0, height() / 2.0);
+    p.scale(scale, scale);
+    p.translate(-kDesignWidth / 2.0, -kDesignHeight / 2.0);
+
+    const double leadExtra = std::max(0.0, (width() / scale - kDesignWidth) / 2);
+    const QRect body(30, kDesignHeight / 2 - 22, kDesignWidth - 60, 44);
     p.setPen(QPen(Qt::darkGray, 3));
-    p.drawLine(0, height() / 2, body.left(), height() / 2);
-    p.drawLine(body.right(), height() / 2, width(), height() / 2);
+    p.drawLine(QPointF(-leadExtra, kDesignHeight / 2.0), QPointF(body.left(), kDesignHeight / 2.0));
+    p.drawLine(QPointF(body.right(), kDesignHeight / 2.0),
+               QPointF(kDesignWidth + leadExtra, kDesignHeight / 2.0));
 
     p.setPen(QPen(Qt::black, 1));
     p.setBrush(qcolor(Color::None));
@@ -56,11 +79,12 @@ void ColorBandStrip::paintEvent(QPaintEvent *)
     for (int i = 0; i < count; ++i) {
         const bool separated = i >= count - (count == 6 ? 2 : 1);
         const double slot = double(body.width() - 40) / std::max(1, count);
-        int x = body.left() + 20 + int(slot * i) + (separated ? 12 : 0);
+        const int x = body.left() + 20 + int(slot * i) + (separated ? 12 : 0);
+        // "None" tolerance means no band is printed.
+        if (m_bands[i] == Color::None)
+            continue;
         p.setPen(Qt::NoPen);
         p.setBrush(qcolor(m_bands[i]));
-        // "None" tolerance means no band is printed.
-        if (m_bands[i] != Color::None)
-            p.drawRect(x, body.top(), bandWidth, body.height());
+        p.drawRect(x, body.top(), bandWidth, body.height());
     }
 }
