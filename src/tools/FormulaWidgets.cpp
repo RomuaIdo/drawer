@@ -6,6 +6,7 @@
 
 #include "Engineering.h"
 #include "Formulas.h"
+#include "ResultLabel.h"
 #include "SmdCode.h"
 
 namespace {
@@ -15,15 +16,6 @@ QLineEdit *makeInput(const QString &placeholder)
     auto *edit = new QLineEdit;
     edit->setPlaceholderText(placeholder);
     return edit;
-}
-
-QLabel *makeResultLabel()
-{
-    auto *label = new QLabel;
-    label->setStyleSheet("font-size: 16px; font-weight: bold;");
-    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    label->setWordWrap(true);
-    return label;
 }
 
 // Empty text -> nullopt; text that is not a number -> `invalid` set to true.

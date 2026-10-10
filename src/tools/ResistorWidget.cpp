@@ -12,6 +12,7 @@
 #include "ColorBandStrip.h"
 #include "Engineering.h"
 #include "ResistorCode.h"
+#include "ResultLabel.h"
 
 using namespace ResistorCode;
 
@@ -41,15 +42,14 @@ ResistorWidget::ResistorWidget(QWidget *parent)
     , m_bandCount(new QComboBox)
     , m_selectorsHost(new QWidget)
     , m_strip(new ColorBandStrip)
-    , m_result(new QLabel)
+    , m_result(makeResultLabel())
     , m_valueInput(new QLineEdit)
     , m_toleranceInput(new QComboBox)
-    , m_encodeStatus(new QLabel)
+    , m_encodeStatus(makeResultLabel())
 {
     for (int bands : {4, 5, 6})
         m_bandCount->addItem(tr("%1 bands").arg(bands), bands);
 
-    m_result->setStyleSheet("font-size: 18px; font-weight: bold;");
     m_valueInput->setPlaceholderText(tr("e.g. 4.7k, 4k7, 330"));
     for (Color c : toleranceColors())
         m_toleranceInput->addItem(QString("±%1%").arg(*toleranceOf(c)), int(c));

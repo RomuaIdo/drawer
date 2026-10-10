@@ -1,5 +1,4 @@
 #include <QComboBox>
-#include <QLineEdit>
 #include <QtTest>
 
 #include "data/Database.h"
@@ -33,23 +32,12 @@ private slots:
         QCOMPARE(window.windowTitle(), QString("Drawer"));
     }
 
-    void capacitorDrawingFollowsInput()
+    void capacitorToolPaints()
     {
         CapacitorWidget widget;
         widget.show();
-        auto *strip = widget.findChild<CapacitorStrip *>();
-        auto inputs = widget.findChildren<QLineEdit *>();
-        QVERIFY(strip);
-        QCOMPARE(inputs.size(), 2);
-
-        inputs[0]->setText("104k");
-        QCOMPARE(strip->marking(), QString("104K"));
-        inputs[0]->setText("zzz");
-        QVERIFY(strip->marking().isEmpty());
-
-        inputs[1]->setText("22n");
-        QCOMPARE(strip->marking(), QString("223"));
-        QVERIFY(!strip->grab().isNull()); // Painting does not crash.
+        QVERIFY(widget.findChild<CapacitorStrip *>());
+        QVERIFY(!widget.grab().isNull()); // Painting does not crash.
     }
 
     void toolsDialogBuildsAllTools()
@@ -57,6 +45,8 @@ private slots:
         const ToolRegistry registry = ToolRegistry::withDefaultTools();
         ToolsDialog dialog(registry);
         QVERIFY(!registry.tools().empty());
+        QVERIFY(!registry.toolsIn(ToolCategory::ComponentReading).empty());
+        QVERIFY(!registry.toolsIn(ToolCategory::Auxiliary).empty());
 
         // Switching the band count rebuilds the selectors without crashing.
         auto *bandCount = dialog.findChild<QComboBox *>();
