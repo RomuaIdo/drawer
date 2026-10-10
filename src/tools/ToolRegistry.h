@@ -13,6 +13,7 @@ public:
 
     void add(std::unique_ptr<ITool> tool) { m_tools.push_back(std::move(tool)); }
     const std::vector<std::unique_ptr<ITool>> &tools() const { return m_tools; }
+    std::vector<const ITool *> toolsIn(ToolCategory category) const;
 
 private:
     std::vector<std::unique_ptr<ITool>> m_tools;
