@@ -36,28 +36,14 @@ void ColorBandStrip::setBands(const QList<Color> &bands)
     update();
 }
 
-namespace {
-constexpr double kMaxScale = 2.5;
-
-double scaleFor(const QSize &size)
-{
-    return std::min({double(size.width()) / ColorBandStrip::kDesignWidth,
-                     double(size.height()) / ColorBandStrip::kDesignHeight, kMaxScale});
-}
-} // namespace
-
-int ColorBandStrip::heightForWidth(int width) const
-{
-    return int(std::min(double(width) / kDesignWidth, kMaxScale) * kDesignHeight);
-}
-
 void ColorBandStrip::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    // Draw in design units, centered, with the proportions kept at any window size.
-    const double scale = scaleFor(size());
+    // Keep the design size, centered; shrink proportionally only if it does not fit.
+    const double scale = std::min({1.0, double(width()) / kDesignWidth,
+                                   double(height()) / kDesignHeight});
     p.translate(width() / 2.0, height() / 2.0);
     p.scale(scale, scale);
     p.translate(-kDesignWidth / 2.0, -kDesignHeight / 2.0);
