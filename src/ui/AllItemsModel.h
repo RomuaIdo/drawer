@@ -2,6 +2,7 @@
 
 #include <QAbstractTableModel>
 #include <QList>
+#include <functional>
 
 #include "core/Models.h"
 
@@ -16,6 +17,9 @@ public:
     void setEntries(const QList<ItemEntry> &entries);
     // Grouped: entries of the same item share a row listing its drawers and quantities.
     void setGrouped(bool grouped);
+    // Where an item is stored, for the tooltip of the quantity.
+    using LocationProvider = std::function<QList<ItemLocation>(int itemId)>;
+    void setLocationProvider(LocationProvider provider) { m_locations = std::move(provider); }
     bool grouped() const { return m_grouped; }
 
     // Drawers holding the item in this row; the first is where the row's own entry lives.
@@ -49,4 +53,5 @@ private:
     QList<ItemEntry> m_entries;
     QList<Row> m_rows;
     bool m_grouped = false;
+    LocationProvider m_locations;
 };

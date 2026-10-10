@@ -4,27 +4,18 @@
 #include <QMimeData>
 
 #include "ItemMime.h"
+#include "LocationsText.h"
 
 namespace {
 enum Column { Name, Category, Value, Package, Quantity, MinStock, Notes, ColumnCount };
 }
 
-// Only items that are stored in more than one place get a location list.
+// The drawers holding the item, only for items stored in more than one place.
 QString ItemTableModel::quantityTooltip(const Item &item) const
 {
-    constexpr int kMaxOtherDrawers = 5;
     QStringList lines;
-
-    if (item.stockTotal() != item.quantity && m_locations) {
-        lines << QString("%1/%2").arg(item.quantity).arg(item.stockTotal());
-        const QList<ItemLocation> locations = m_locations(item.id); // This entry comes first.
-        for (int i = 0; i < locations.size() && i <= kMaxOtherDrawers; ++i)
-            lines << QString("%1/%2 (%3)").arg(locations[i].group, locations[i].drawerLabel)
-                         .arg(locations[i].quantity);
-        const int more = locations.size() - 1 - kMaxOtherDrawers;
-        if (more > 0)
-            lines << tr("+%n more", "", more);
-    }
+    if (item.stockTotal() != item.quantity && m_locations)
+        lines << LocationsText::tooltip(m_locations(item.id));
     if (item.isLowStock())
         lines << tr("Low stock: %1 in total, minimum %2").arg(item.stockTotal()).arg(*item.minStock);
     return lines.join('\n');
@@ -106,7 +97,11 @@ QVariant ItemTableModel::data(const QModelIndex &index, int role) const
     case Category: return item.category;
     case Value: return item.value;
     case Package: return item.package;
-    case Quantity: return item.quantity;
+    case Quantity:
+        // "4/10": this drawer's quantity over the item's total, when stored elsewhere too.
+        return item.stockTotal() != item.quantity
+            ? QVariant(QString("%1/%2").arg(item.quantity).arg(item.stockTotal()))
+            : QVariant(item.quantity);
     case MinStock: return item.minStock ? QVariant(*item.minStock) : QVariant();
     case Notes: return item.notes;
     }
