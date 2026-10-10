@@ -140,4 +140,81 @@ std::optional<Reading> read(const QString &input)
     return reading;
 }
 
+std::optional<double> parseVoltage(const QString &text)
+{
+    QString t = text.trimmed();
+    if (t.endsWith('V') || t.endsWith('v'))
+        t.chop(1);
+    const auto volts = Engineering::parse(t);
+    if (!volts || *volts <= 0)
+        return std::nullopt;
+    return volts;
+}
+
+QString formatVoltage(double volts)
+{
+    // Whole volts without decimals, thousands as kV.
+    if (volts >= 1000)
+        return QString::number(volts / 1000, 'g', 3) + "kV";
+    return QString::number(volts, 'g', 3) + "V";
+}
+
+QString compactValue(double picofarads, bool withUnit)
+{
+    // Micro goes up to 10 mF so that large electrolytics read 1000u, 4700u as printed.
+    double divisor = 1;
+    QString symbol = "p";
+    if (picofarads >= 1e10) {
+        divisor = 1e9;
+        symbol = "m";
+    } else if (picofarads >= 1e6) {
+        divisor = 1e6;
+        symbol = QString::fromUtf8("\u00b5");
+    } else if (picofarads >= 1e3) {
+        divisor = 1e3;
+        symbol = "n";
+    }
+    return QString::number(picofarads / divisor, 'g', 4) + symbol + (withUnit ? "F" : "");
+}
+
+QStringList printedLines(CapacitorType type, const Reading &reading, std::optional<double> volts)
+{
+    const double pf = reading.capacitance.picofarads;
+    QStringList lines;
+    switch (type) {
+    case CapacitorType::CeramicChip:
+        return {}; // Chips are not marked.
+    case CapacitorType::CeramicDisc:
+        lines << (reading.marking.isEmpty() ? compactValue(pf, false) : reading.marking);
+        break;
+    case CapacitorType::Film:
+        lines << compactValue(pf, false);
+        break;
+    case CapacitorType::Electrolytic:
+        lines << compactValue(pf, true);
+        break;
+    case CapacitorType::Tantalum:
+        lines << compactValue(pf, false);
+        break;
+    }
+    if (volts)
+        lines << formatVoltage(*volts);
+    return lines;
+}
+
+double voltageScale(std::optional<double> volts)
+{
+    if (!volts)
+        return 1.0;
+    if (*volts <= 10)
+        return 0.85;
+    if (*volts <= 25)
+        return 1.0;
+    if (*volts <= 63)
+        return 1.12;
+    if (*volts <= 160)
+        return 1.22;
+    return 1.3;
+}
+
 } // namespace CapacitorCode

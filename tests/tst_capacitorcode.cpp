@@ -119,6 +119,76 @@ private slots:
                  T::Electrolytic);
     }
 
+    void valuesArePrintedTheWayPartsCarryThem_data()
+    {
+        QTest::addColumn<double>("picofarads");
+        QTest::addColumn<QString>("compact");
+        QTest::addColumn<QString>("withUnit");
+        QTest::newRow("pico") << 22.0 << "22p" << "22pF";
+        QTest::newRow("nano") << 100000.0 << "100n" << "100nF";
+        QTest::newRow("fractional micro") << 4.7e6 << "4.7\u00b5" << "4.7\u00b5F";
+        QTest::newRow("large micro") << 2.2e9 << "2200\u00b5" << "2200\u00b5F";
+        QTest::newRow("milli") << 1.5e10 << "15m" << "15mF";
+        QTest::newRow("kilo-pico boundary") << 1000.0 << "1n" << "1nF";
+    }
+
+    void valuesArePrintedTheWayPartsCarryThem()
+    {
+        QFETCH(double, picofarads);
+        QFETCH(QString, compact);
+        QFETCH(QString, withUnit);
+        QCOMPARE(CapacitorCode::compactValue(picofarads, false), compact);
+        QCOMPARE(CapacitorCode::compactValue(picofarads, true), withUnit);
+    }
+
+    void voltagesParseAndFormat()
+    {
+        QCOMPARE(*CapacitorCode::parseVoltage("50"), 50.0);
+        QCOMPARE(*CapacitorCode::parseVoltage("50V"), 50.0);
+        QCOMPARE(*CapacitorCode::parseVoltage(" 6.3v "), 6.3);
+        QCOMPARE(*CapacitorCode::parseVoltage("1kV"), 1000.0);
+        QVERIFY(!CapacitorCode::parseVoltage(""));
+        QVERIFY(!CapacitorCode::parseVoltage("abc"));
+        QVERIFY(!CapacitorCode::parseVoltage("0"));
+        QVERIFY(!CapacitorCode::parseVoltage("-5"));
+        QCOMPARE(CapacitorCode::formatVoltage(50), QString("50V"));
+        QCOMPARE(CapacitorCode::formatVoltage(6.3), QString("6.3V"));
+        QCOMPARE(CapacitorCode::formatVoltage(1500), QString("1.5kV"));
+    }
+
+    void printedTextDependsOnTheType()
+    {
+        using T = CapacitorCode::CapacitorType;
+        const auto reading = *CapacitorCode::read("104K");
+        const std::optional<double> volts = 50;
+        QCOMPARE(CapacitorCode::printedLines(T::CeramicDisc, reading, volts),
+                 (QStringList{"104K", "50V"})); // The code, as on disc ceramics.
+        QCOMPARE(CapacitorCode::printedLines(T::Film, reading, volts),
+                 (QStringList{"100n", "50V"}));
+        QCOMPARE(CapacitorCode::printedLines(T::Electrolytic, reading, volts),
+                 (QStringList{"100nF", "50V"}));
+        QCOMPARE(CapacitorCode::printedLines(T::Tantalum, reading, std::nullopt),
+                 (QStringList{"100n"})); // No voltage given: no voltage line.
+        QVERIFY(CapacitorCode::printedLines(T::CeramicChip, reading, volts).isEmpty()); // Unmarked.
+    }
+
+    void discsWithoutACodePrintTheValue()
+    {
+        using T = CapacitorCode::CapacitorType;
+        const auto reading = *CapacitorCode::read("2200u"); // No 3-digit code fits.
+        QCOMPARE(CapacitorCode::printedLines(T::CeramicDisc, reading, std::nullopt),
+                 (QStringList{"2200\u00b5"}));
+    }
+
+    void higherVoltageMeansABiggerPart()
+    {
+        QCOMPARE(CapacitorCode::voltageScale(std::nullopt), 1.0);
+        QVERIFY(CapacitorCode::voltageScale(6.3) < CapacitorCode::voltageScale(25));
+        QVERIFY(CapacitorCode::voltageScale(25) < CapacitorCode::voltageScale(50));
+        QVERIFY(CapacitorCode::voltageScale(50) < CapacitorCode::voltageScale(100));
+        QVERIFY(CapacitorCode::voltageScale(100) < CapacitorCode::voltageScale(400));
+    }
+
     void roundTrip()
     {
         for (const QString code : {"104", "223", "471", "331", "105"})
