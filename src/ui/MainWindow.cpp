@@ -97,6 +97,7 @@ void MainWindow::createActions()
     editMenu->addAction(tr("&Copy"), QKeySequence::Copy, this, &MainWindow::editCopy);
     editMenu->addAction(tr("&Paste"), QKeySequence::Paste, this, &MainWindow::editPaste);
     editMenu->addSeparator();
+    editMenu->addAction(tr("&Delete"), QKeySequence::Delete, this, &MainWindow::editDelete);
     editMenu->addAction(tr("Select &all"), QKeySequence::SelectAll, this,
                         &MainWindow::editSelectAll);
     updateUndoActions();
@@ -452,6 +453,7 @@ void MainWindow::showGroupMenu(const DrawerGroup &group, int drawerId, const QPo
         menu.addAction(tr("Paste %n item(s) into %1", "", m_itemClipboard.size()).arg(label),
                        [&] { pasteItems(drawerId); })
             ->setEnabled(!m_itemClipboard.isEmpty());
+        menu.addAction(tr("Delete drawer"), [&] { deleteDrawer(drawerId); });
         menu.addSeparator();
     }
     menu.addAction(tr("Edit group \"%1\"").arg(group.name), [&] { editGroup(group); });
@@ -528,6 +530,36 @@ void MainWindow::editSelectAll()
         m_panel->selectAll();
     else
         m_view->selectAllGroups();
+}
+
+// Deletes the selected items when the list has the focus, otherwise the selected drawer.
+void MainWindow::editDelete()
+{
+    const QWidget *focus = QApplication::focusWidget();
+    if (focus && m_panel->isAncestorOf(focus))
+        m_panel->removeSelected();
+    else if (m_selectedDrawerId == 0)
+        statusBar()->showMessage(tr("Select a drawer to delete"));
+    else
+        deleteDrawer(m_selectedDrawerId);
+}
+
+void MainWindow::deleteDrawer(int drawerId)
+{
+    ChangeScope scope(*this, tr("Delete drawer"));
+    guarded([&] {
+        const int itemCount = m_items.inDrawer(drawerId).size();
+        if (itemCount > 0
+            && QMessageBox::question(
+                   this, tr("Delete drawer"),
+                   tr("This drawer holds %n item(s), which will be deleted too. Continue?", "",
+                      itemCount))
+                != QMessageBox::Yes)
+            return;
+        m_drawers.removeDrawer(drawerId);
+        reloadView();
+        statusBar()->showMessage(tr("Drawer deleted"));
+    });
 }
 
 void MainWindow::recordChange(const QString &label)

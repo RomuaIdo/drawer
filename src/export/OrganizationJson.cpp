@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QSet>
 #include <cmath>
 
@@ -151,20 +152,25 @@ GroupEntry groupFromJson(const QJsonObject &o, const QString &where)
         g.color = parsed.name(); // Normalized to #rrggbb.
     }
 
-    // Start from default drawers, then apply the ones described in the file.
-    QList<DrawerEntry> cells;
-    for (int r = 0; r < g.rows; ++r) {
-        for (int c = 0; c < g.cols; ++c) {
-            DrawerEntry cell;
-            cell.drawer.row = r;
-            cell.drawer.col = c;
-            cell.drawer.size = g.defaultSize;
-            cell.drawer.label = QString("R%1C%2").arg(r + 1).arg(c + 1);
-            cells.append(cell);
+    QSet<int> listed;
+    // Without a "drawers" list every cell gets a default drawer; with one, only the listed
+    // cells exist (the others were deleted, leaving holes in the block).
+    QMap<int, DrawerEntry> cells; // Keyed by row * kMaxGroupSide + col, so row-major order.
+    auto defaultCell = [&](int r, int c) {
+        DrawerEntry cell;
+        cell.drawer.row = r;
+        cell.drawer.col = c;
+        cell.drawer.size = g.defaultSize;
+        cell.drawer.label = QString("R%1C%2").arg(r + 1).arg(c + 1);
+        return cell;
+    };
+    if (!o.contains("drawers")) {
+        for (int r = 0; r < g.rows; ++r) {
+            for (int c = 0; c < g.cols; ++c)
+                cells.insert(r * kMaxGroupSide + c, defaultCell(r, c));
         }
     }
 
-    QSet<int> seen;
     const QJsonArray drawers = requireArray(o, "drawers", where);
     for (int i = 0; i < drawers.size(); ++i) {
         const QString dwhere = QString("%1, drawer %2").arg(where).arg(i + 1);
@@ -174,11 +180,11 @@ GroupEntry groupFromJson(const QJsonObject &o, const QString &where)
         const int row = requireInt(d, "row", dwhere, 0, g.rows - 1);
         const int col = requireInt(d, "col", dwhere, 0, g.cols - 1);
         const int cellKey = row * kMaxGroupSide + col;
-        if (seen.contains(cellKey))
+        if (listed.contains(cellKey))
             fail(dwhere, QString("duplicate drawer at row %1, col %2").arg(row).arg(col));
-        seen.insert(cellKey);
+        listed.insert(cellKey);
 
-        DrawerEntry &cell = cells[row * g.cols + col];
+        DrawerEntry cell = cells.value(cellKey, defaultCell(row, col));
         cell.drawer.size = requireSize(d, "size", dwhere);
         const QString label = requireString(d, "label", dwhere, false);
         if (!label.isEmpty())
@@ -190,8 +196,9 @@ GroupEntry groupFromJson(const QJsonObject &o, const QString &where)
                 fail(iwhere, "must be an object");
             cell.items.append(itemFromJson(items[k].toObject(), iwhere));
         }
+        cells.insert(cellKey, cell);
     }
-    entry.drawers = cells;
+    entry.drawers = cells.values();
     return entry;
 }
 

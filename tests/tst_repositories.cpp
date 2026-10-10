@@ -258,6 +258,46 @@ private slots:
         QCOMPARE(m_items->inDrawer(a.id).first().quantity, 12);
     }
 
+    void removeDrawerLeavesAHoleAndKeepsTheRest()
+    {
+        const int cab = m_cabinets->add({0, "A", ""}).id;
+        DrawerGroup g;
+        g.cabinetId = cab;
+        g.name = "Block";
+        g.rows = 2;
+        g.cols = 2;
+        g = m_drawers->addGroup(g);
+        const QList<Drawer> drawers = m_drawers->drawersOf(g.id);
+        m_items->add({0, drawers[0].id, "Gone", "", "", "", 1, ""});
+        m_items->add({0, drawers[1].id, "Stays", "", "", "", 1, ""});
+
+        m_drawers->removeDrawer(drawers[0].id);
+        QCOMPARE(m_drawers->drawersOf(g.id).size(), 3);
+        QVERIFY(m_items->search("Gone").isEmpty()); // Its items go with it.
+        QCOMPARE(m_items->search("Stays").size(), 1);
+        QCOMPARE(m_drawers->groupsOf(cab).size(), 1);
+
+        // Growing the block does not bring the deleted drawer back.
+        g.cols = 3;
+        m_drawers->resizeGroup(g, {});
+        const QList<Drawer> grown = m_drawers->drawersOf(g.id);
+        QCOMPARE(grown.size(), 5); // 3 left + 2 new in the third column.
+        for (const Drawer &d : grown)
+            QVERIFY(!(d.row == 0 && d.col == 0));
+    }
+
+    void removingTheLastDrawerRemovesTheGroup()
+    {
+        const int cab = m_cabinets->add({0, "A", ""}).id;
+        DrawerGroup g;
+        g.cabinetId = cab;
+        g.name = "Single";
+        g = m_drawers->addGroup(g);
+        m_drawers->removeDrawer(m_drawers->drawersOf(g.id).first().id);
+        QVERIFY(m_drawers->groupsOf(cab).isEmpty());
+        m_drawers->removeDrawer(9999); // Unknown ids are ignored.
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();

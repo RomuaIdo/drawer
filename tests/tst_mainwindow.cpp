@@ -155,6 +155,25 @@ private slots:
         QCOMPARE(m_items->inDrawer(m_left[0].id).first().quantity, 5);
     }
 
+    void deleteRemovesTheSelectedDrawerAndCanBeUndone()
+    {
+        const Drawer target = m_right[1]; // Empty drawer: no confirmation needed.
+        selectDrawer(target);
+        action("Delete")->trigger();
+        QCOMPARE(m_drawers->drawersOf(m_groups[1].id).size(), 1);
+        QVERIFY(action("Undo")->text().contains("Delete drawer"));
+
+        action("Undo")->trigger();
+        QCOMPARE(m_drawers->drawersOf(m_groups[1].id).size(), 2);
+    }
+
+    void deleteWithoutASelectedDrawerDoesNothing()
+    {
+        action("Delete")->trigger();
+        QCOMPARE(m_drawers->drawersOf(m_groups[0].id).size(), 2);
+        QCOMPARE(m_drawers->drawersOf(m_groups[1].id).size(), 2);
+    }
+
     void selectAllSelectsEveryGroupWhenTheCabinetHasTheFocus()
     {
         action("Select all")->trigger();
