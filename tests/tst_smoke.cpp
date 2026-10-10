@@ -1,3 +1,4 @@
+#include <QComboBox>
 #include <QtTest>
 
 #include "data/Database.h"
@@ -6,6 +7,8 @@
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteMappingRepository.h"
 #include "export/CsvExporter.h"
+#include "tools/ToolRegistry.h"
+#include "tools/ToolsDialog.h"
 #include "ui/MainWindow.h"
 
 class SmokeTest : public QObject
@@ -23,6 +26,19 @@ private slots:
         CsvExporter exporter;
         MainWindow window({cabinets, drawers, items, mapping}, exporter);
         QCOMPARE(window.windowTitle(), QString("Drawer"));
+    }
+
+    void toolsDialogBuildsAllTools()
+    {
+        const ToolRegistry registry = ToolRegistry::withDefaultTools();
+        ToolsDialog dialog(registry);
+        QVERIFY(!registry.tools().empty());
+
+        // Switching the band count rebuilds the selectors without crashing.
+        auto *bandCount = dialog.findChild<QComboBox *>();
+        QVERIFY(bandCount);
+        for (int i = 0; i < bandCount->count(); ++i)
+            bandCount->setCurrentIndex(i);
     }
 };
 

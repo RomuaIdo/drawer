@@ -6,11 +6,13 @@
 #include "ItemDialog.h"
 #include "data/Repositories.h"
 #include "export/Exporter.h"
+#include "tools/ToolRegistry.h"
 
 class CabinetView;
 class ItemPanel;
 class QComboBox;
 class QLineEdit;
+class ToolsDialog;
 
 class MainWindow : public QMainWindow
 {
@@ -32,6 +34,7 @@ private:
     void editGroup(const DrawerGroup &group);
     void deleteGroup(const DrawerGroup &group);
     void editDrawer(const Drawer &drawer);
+    void showTools();
     void exportMapping();
     void selectDrawer(const Drawer &drawer);
     void applySearch();
@@ -45,6 +48,8 @@ private:
     IItemRepository &m_items;
     IMappingRepository &m_mapping;
     const IExporter &m_exporter;
+    ToolRegistry m_tools;
+    ToolsDialog *m_toolsDialog = nullptr;
     QComboBox *m_cabinetCombo;
     CabinetView *m_view;
     ItemPanel *m_panel;
