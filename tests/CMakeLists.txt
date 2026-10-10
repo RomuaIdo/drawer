@@ -7,3 +7,4 @@ function(add_drawer_test name)
 endfunction()
 
 add_drawer_test(tst_smoke)
+add_drawer_test(tst_repositories)
