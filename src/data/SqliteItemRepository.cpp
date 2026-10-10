@@ -95,3 +95,23 @@ void SqliteItemRepository::adjustQuantity(const QList<int> &ids, int delta)
                       {delta, id});
     tx.commit();
 }
+
+void SqliteItemRepository::moveItems(const QList<int> &ids, int drawerId)
+{
+    SqlUtil::Transaction tx(m_db);
+    for (int id : ids)
+        SqlUtil::exec(m_db, "UPDATE items SET drawer_id = ? WHERE id = ?", {drawerId, id});
+    tx.commit();
+}
+
+void SqliteItemRepository::copyItems(const QList<int> &ids, int drawerId)
+{
+    SqlUtil::Transaction tx(m_db);
+    for (int id : ids)
+        SqlUtil::exec(m_db,
+            "INSERT INTO items (drawer_id, name, category, value, package, quantity, notes, "
+            "min_stock) SELECT ?, name, category, value, package, quantity, notes, min_stock "
+            "FROM items WHERE id = ?",
+            {drawerId, id});
+    tx.commit();
+}

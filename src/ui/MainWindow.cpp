@@ -12,6 +12,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QScrollArea>
+#include <QShortcut>
 #include <QStatusBar>
 #include <QToolBar>
 
@@ -57,6 +58,14 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_cabinetCombo, &QComboBox::currentIndexChanged, this, &MainWindow::reloadView);
     connect(m_view, &CabinetView::drawerSelected, this, &MainWindow::selectDrawer);
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
+    connect(m_panel, &ItemPanel::copyRequested, this, &MainWindow::copyItems);
+    connect(m_panel, &ItemPanel::pasteRequested, this,
+            [this] { pasteItems(m_selectedDrawerId); });
+    connect(m_view, &CabinetView::itemsDropped, this, &MainWindow::transferItems);
+    // Ctrl+V with the cabinet focused pastes into the selected drawer.
+    auto *pasteOnView = new QShortcut(QKeySequence::Paste, m_view);
+    pasteOnView->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(pasteOnView, &QShortcut::activated, this, [this] { pasteItems(m_selectedDrawerId); });
     connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::applySearch);
     connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::updateLowStock);
     connect(m_view, &CabinetView::drawerActivated, this, &MainWindow::editDrawer);
@@ -407,9 +416,20 @@ void MainWindow::editDrawer(const Drawer &drawer)
     }
 }
 
-void MainWindow::showGroupMenu(const DrawerGroup &group, const QPoint &globalPos)
+void MainWindow::showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos)
 {
     QMenu menu;
+    if (drawerId) {
+        QString label;
+        for (const auto &choice : m_drawerChoices) {
+            if (choice.id == drawerId)
+                label = choice.text;
+        }
+        menu.addAction(tr("Paste %n item(s) into %1", "", m_itemClipboard.size()).arg(label),
+                       [&] { pasteItems(drawerId); })
+            ->setEnabled(!m_itemClipboard.isEmpty());
+        menu.addSeparator();
+    }
     menu.addAction(tr("Edit group \"%1\"").arg(group.name), [&] { editGroup(group); });
     menu.addAction(tr("Delete group"), [&] { deleteGroup(group); });
     menu.addSeparator();
@@ -419,4 +439,38 @@ void MainWindow::showGroupMenu(const DrawerGroup &group, const QPoint &globalPos
     free->setToolTip(tr("Applies to every block you drag until turned off"));
     connect(free, &QAction::toggled, m_view, &CabinetView::setFreeMove);
     menu.exec(globalPos);
+}
+
+void MainWindow::copyItems(const QList<int> &itemIds)
+{
+    m_itemClipboard = itemIds;
+    m_panel->setCanPaste(!m_itemClipboard.isEmpty());
+    statusBar()->showMessage(tr("Copied %n item(s)", "", itemIds.size()));
+}
+
+void MainWindow::pasteItems(int drawerId)
+{
+    if (m_itemClipboard.isEmpty() || !drawerId)
+        return;
+    transferItems(m_itemClipboard, drawerId, true);
+}
+
+void MainWindow::transferItems(const QList<int> &itemIds, int drawerId, bool copy)
+{
+    guarded([&] {
+        if (copy)
+            m_items.copyItems(itemIds, drawerId);
+        else
+            m_items.moveItems(itemIds, drawerId);
+        refreshItems();
+        statusBar()->showMessage(copy ? tr("Copied %n item(s)", "", itemIds.size())
+                                      : tr("Moved %n item(s)", "", itemIds.size()));
+    });
+}
+
+void MainWindow::refreshItems()
+{
+    m_panel->reload();
+    applySearch();
+    updateLowStock();
 }

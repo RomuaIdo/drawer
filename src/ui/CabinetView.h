@@ -39,7 +39,10 @@ public:
 signals:
     void drawerSelected(const Drawer &drawer);
     void drawerActivated(const Drawer &drawer); // Double click.
-    void groupContextRequested(const DrawerGroup &group, const QPoint &globalPos);
+    // `drawerId` is the drawer under the cursor (0 when none).
+    void groupContextRequested(const DrawerGroup &group, int drawerId, const QPoint &globalPos);
+    // Items dropped on a drawer; `copy` when Ctrl was held.
+    void itemsDropped(const QList<int> &itemIds, int drawerId, bool copy);
     // Blocks dropped at a new place, carrying their new positions.
     void groupsMoved(const QList<DrawerGroup> &groups);
 
@@ -52,6 +55,10 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dragLeaveEvent(QDragLeaveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     struct Hit {
@@ -75,6 +82,7 @@ private:
     int m_selectedDrawerId = 0;
     QSet<int> m_highlighted;
     QSet<int> m_lowStock;
+    int m_dropDrawerId = 0; // Drawer under an item being dragged over the view.
     QSet<int> m_selectedGroups;
     bool m_freeMove = false;
     QPoint m_pressPos;

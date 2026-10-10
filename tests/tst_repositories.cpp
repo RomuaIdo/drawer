@@ -220,6 +220,44 @@ private slots:
         QCOMPARE(m_items->lowStock().size(), 1);
     }
 
+    void moveItemsKeepsThemAndSkipsMissingIds()
+    {
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        const Item one = m_items->add({0, a.id, "One", "", "", "", 4, "n", 2});
+        const Item two = m_items->add({0, a.id, "Two", "", "", "", 7, ""});
+        m_items->moveItems({one.id, two.id, 9999}, b.id);
+        QVERIFY(m_items->inDrawer(a.id).isEmpty());
+        QCOMPARE(m_items->inDrawer(b.id).size(), 2);
+        QCOMPARE(m_items->inDrawer(b.id)[0].id, one.id); // Same records, not copies.
+    }
+
+    void copyItemsDuplicatesEveryField()
+    {
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        const Item original = m_items->add({0, a.id, "Cap", "Passive", "100nF", "0805", 12, "note", 3});
+        m_items->copyItems({original.id, 9999}, b.id);
+
+        QCOMPARE(m_items->inDrawer(a.id).size(), 1); // Original stays.
+        const QList<Item> copies = m_items->inDrawer(b.id);
+        QCOMPARE(copies.size(), 1);
+        QVERIFY(copies[0].id != original.id);
+        QCOMPARE(copies[0].name, QString("Cap"));
+        QCOMPARE(copies[0].package, QString("0805"));
+        QCOMPARE(copies[0].quantity, 12);
+        QCOMPARE(copies[0].notes, QString("note"));
+        QCOMPARE(*copies[0].minStock, 3);
+
+        // Pasting twice gives two independent copies; editing one leaves the other alone.
+        m_items->copyItems({original.id}, b.id);
+        QCOMPARE(m_items->inDrawer(b.id).size(), 2);
+        Item edited = m_items->inDrawer(b.id).first();
+        edited.quantity = 1;
+        m_items->update(edited);
+        QCOMPARE(m_items->inDrawer(a.id).first().quantity, 12);
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();

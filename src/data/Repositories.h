@@ -53,6 +53,10 @@ public:
     virtual QList<Item> lowStock() const = 0;
     // Adds `delta` to each item's quantity, never going below zero.
     virtual void adjustQuantity(const QList<int> &ids, int delta) = 0;
+    // Moves the items to another drawer, or adds copies of them there. Both are atomic;
+    // ids that no longer exist are skipped.
+    virtual void moveItems(const QList<int> &ids, int drawerId) = 0;
+    virtual void copyItems(const QList<int> &ids, int drawerId) = 0;
 };
 
 // Read-only flattened view used by exporters.

@@ -2,12 +2,18 @@
 
 #include <QApplication>
 #include <QContextMenuEvent>
+#include <QDragEnterEvent>
+#include <QDragLeaveEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QHelpEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
-#include <QHelpEvent>
 #include <QPainter>
 #include <QToolTip>
 #include <cmath>
+
+#include "ItemMime.h"
 
 namespace {
 
@@ -48,6 +54,7 @@ CabinetView::CabinetView(QWidget *parent)
     setMinimumSize(sizeHint());
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
+    setAcceptDrops(true);
 }
 
 void CabinetView::setLayouts(const QList<GroupLayout> &layouts)
@@ -239,6 +246,20 @@ void CabinetView::paintEvent(QPaintEvent *)
     for (const BlockOutline &outline : selectedBlocks) {
         p.setPen(QPen(outline.color, 3));
         p.drawRect(outline.rect);
+    }
+
+    if (m_dropDrawerId) {
+        for (const GroupLayout &l : m_layouts) {
+            for (const Drawer &d : l.drawers) {
+                if (d.id != m_dropDrawerId)
+                    continue;
+                p.setPen(QPen(palette().color(QPalette::Highlight), 3, Qt::DashLine));
+                p.setBrush(Qt::NoBrush);
+                p.drawRoundedRect(cellRect(displayed(l.group), d.row, d.col)
+                                      .adjusted(kCellPadding, kCellPadding, -kCellPadding, -kCellPadding),
+                                  4, 4);
+            }
+        }
     }
 
     if (!selectedCell.isNull()) {
@@ -450,5 +471,50 @@ void CabinetView::contextMenuEvent(QContextMenuEvent *event)
     if (hit.layout && !m_selectedGroups.contains(hit.layout->group.id))
         setSelectedGroups({hit.layout->group.id});
     if (hit.layout)
-        emit groupContextRequested(hit.layout->group, event->globalPos());
+        emit groupContextRequested(hit.layout->group, hit.drawer ? hit.drawer->id : 0,
+                                   event->globalPos());
+}
+
+void CabinetView::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (ItemMime::accepts(event->mimeData()))
+        event->acceptProposedAction();
+}
+
+void CabinetView::dragMoveEvent(QDragMoveEvent *event)
+{
+    const Hit hit = hitTest(event->position().toPoint());
+    const int target = ItemMime::accepts(event->mimeData()) && hit.drawer ? hit.drawer->id : 0;
+    if (target != m_dropDrawerId) {
+        m_dropDrawerId = target;
+        update();
+    }
+    if (target)
+        event->acceptProposedAction();
+    else
+        event->ignore();
+}
+
+void CabinetView::dragLeaveEvent(QDragLeaveEvent *event)
+{
+    m_dropDrawerId = 0;
+    update();
+    event->accept();
+}
+
+void CabinetView::dropEvent(QDropEvent *event)
+{
+    const Hit hit = hitTest(event->position().toPoint());
+    const bool copy = event->dropAction() == Qt::CopyAction;
+    const QList<int> ids = ItemMime::decode(event->mimeData());
+    m_dropDrawerId = 0;
+    update();
+    if (!hit.drawer || ids.isEmpty()) {
+        event->ignore();
+        return;
+    }
+    // Reported as a copy so the source view never tries to remove its own rows.
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
+    emit itemsDropped(ids, hit.drawer->id, copy);
 }

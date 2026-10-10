@@ -43,7 +43,11 @@ private:
     void selectDrawer(const Drawer &drawer);
     void applySearch();
     void updateLowStock();
-    void showGroupMenu(const DrawerGroup &group, const QPoint &globalPos);
+    void showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos);
+    void copyItems(const QList<int> &itemIds);
+    void pasteItems(int drawerId);
+    void transferItems(const QList<int> &itemIds, int drawerId, bool copy);
+    void refreshItems();
 
     // Runs `action`, reporting persistence errors to the user.
     template <typename Fn> void guarded(Fn &&action);
@@ -63,4 +67,5 @@ private:
     QList<ItemDialog::DrawerChoice> m_drawerChoices;
     QHash<int, QString> m_groupNames; // Group id -> name, for the current cabinet.
     int m_selectedDrawerId = 0;
+    QList<int> m_itemClipboard; // Items copied with Copy, waiting to be pasted.
 };

@@ -25,8 +25,13 @@ public:
     // Reloads the drawer's items, keeping the selection.
     void reload();
 
+    // Whether Paste is offered (something was copied).
+    void setCanPaste(bool canPaste);
+
 signals:
     void itemsChanged();
+    void copyRequested(const QList<int> &itemIds);
+    void pasteRequested(); // Into the drawer shown in the panel.
 
 private:
     void addItem();
@@ -35,6 +40,7 @@ private:
     void adjustQuantity(int delta);
     QList<int> selectedItemIds() const;
     void updateButtons();
+    void showContextMenu(const QPoint &pos);
 
     IItemRepository &m_items;
     ItemTableModel *m_model;
@@ -46,5 +52,6 @@ private:
     QPushButton *m_decrease;
     QPushButton *m_increase;
     int m_drawerId = 0;
+    bool m_canPaste = false;
     QList<ItemDialog::DrawerChoice> m_destinations;
 };

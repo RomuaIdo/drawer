@@ -1,7 +1,13 @@
 #include <QSignalSpy>
 #include <QtTest>
 
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QMimeData>
+
 #include "ui/CabinetView.h"
+#include "ui/ItemMime.h"
 
 namespace {
 
@@ -177,6 +183,35 @@ private slots:
         QVERIFY2(badge.red() > 180 && badge.green() < 80, qPrintable(badge.name()));
     }
 
+    void droppingItemsOnADrawerReportsMoveOrCopy()
+    {
+        QSignalSpy spy(m_view.get(), &CabinetView::itemsDropped);
+        std::unique_ptr<QMimeData> mime(ItemMime::encode({7, 8}));
+        const QPoint target = cellCenter(4, 0); // Block 2, first drawer (id 200).
+
+        drop(mime.get(), target, Qt::MoveAction);
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(spy[0][0].value<QList<int>>(), (QList<int>{7, 8}));
+        QCOMPARE(spy[0][1].toInt(), 200);
+        QCOMPARE(spy[0][2].toBool(), false);
+
+        drop(mime.get(), target, Qt::CopyAction); // What Qt proposes while Ctrl is held.
+        QCOMPARE(spy.count(), 2);
+        QCOMPARE(spy[1][2].toBool(), true);
+    }
+
+    void dropsOutsideDrawersOrWithOtherDataAreIgnored()
+    {
+        QSignalSpy spy(m_view.get(), &CabinetView::itemsDropped);
+        std::unique_ptr<QMimeData> mime(ItemMime::encode({7}));
+        drop(mime.get(), QPoint(700, 500), Qt::MoveAction);
+
+        QMimeData other;
+        other.setText("not items");
+        drop(&other, cellCenter(0, 0), Qt::MoveAction);
+        QCOMPARE(spy.count(), 0);
+    }
+
     void groupColorOverridesTheSizeColor()
     {
         auto layouts = QList<CabinetView::GroupLayout>{makeLayout(1, 0, 0, 1, 1)};
@@ -238,6 +273,17 @@ private slots:
     }
 
 private:
+    // A full drag session over the view: enter, move, drop.
+    void drop(const QMimeData *mime, QPoint pos, Qt::DropAction action)
+    {
+        QDragEnterEvent enter(pos, action, mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(m_view.get(), &enter);
+        QDragMoveEvent move(pos, action, mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(m_view.get(), &move);
+        QDropEvent drop(pos, action, mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(m_view.get(), &drop);
+    }
+
     void click(QPoint pos, Qt::KeyboardModifiers mods = Qt::NoModifier)
     {
         mouseEvent(m_view.get(), QEvent::MouseButtonPress, pos, Qt::LeftButton, Qt::LeftButton, mods);

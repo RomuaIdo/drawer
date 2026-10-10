@@ -3,8 +3,10 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QShortcut>
 #include <QTableView>
 #include <QVBoxLayout>
 
@@ -30,6 +32,10 @@ ItemPanel::ItemPanel(IItemRepository &items, QWidget *parent)
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->verticalHeader()->hide();
+    m_table->setDragEnabled(true);
+    m_table->setDragDropMode(QAbstractItemView::DragOnly);
+    m_table->setDefaultDropAction(Qt::MoveAction);
+    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
 
     auto *buttons = new QHBoxLayout;
     buttons->addWidget(m_add);
@@ -57,7 +63,48 @@ ItemPanel::ItemPanel(IItemRepository &items, QWidget *parent)
     connect(m_table->selectionModel(), &QItemSelectionModel::selectionChanged, this,
             &ItemPanel::updateButtons);
 
+    connect(m_table, &QWidget::customContextMenuRequested, this, &ItemPanel::showContextMenu);
+    auto *copy = new QShortcut(QKeySequence::Copy, this);
+    copy->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(copy, &QShortcut::activated, this, [this] {
+        const QList<int> ids = selectedItemIds();
+        if (!ids.isEmpty())
+            emit copyRequested(ids);
+    });
+    auto *paste = new QShortcut(QKeySequence::Paste, this);
+    paste->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(paste, &QShortcut::activated, this, [this] {
+        if (m_canPaste && m_drawerId)
+            emit pasteRequested();
+    });
+
     clear();
+}
+
+void ItemPanel::setCanPaste(bool canPaste)
+{
+    m_canPaste = canPaste;
+}
+
+void ItemPanel::showContextMenu(const QPoint &pos)
+{
+    const bool hasSelection = m_table->selectionModel()->hasSelection();
+    // Right click on a row that is not selected selects it first.
+    const QModelIndex under = m_table->indexAt(pos);
+    if (under.isValid() && !m_table->selectionModel()->isRowSelected(under.row()))
+        m_table->selectRow(under.row());
+
+    QMenu menu;
+    const QList<int> ids = selectedItemIds();
+    menu.addAction(tr("Copy"), QKeySequence::Copy, this, [this, ids] { emit copyRequested(ids); })
+        ->setEnabled(!ids.isEmpty());
+    menu.addAction(tr("Paste"), QKeySequence::Paste, this, [this] { emit pasteRequested(); })
+        ->setEnabled(m_canPaste && m_drawerId != 0);
+    menu.addSeparator();
+    menu.addAction(tr("Edit"), this, &ItemPanel::editItem)->setEnabled(!ids.isEmpty());
+    menu.addAction(tr("Remove"), this, &ItemPanel::removeItem)->setEnabled(!ids.isEmpty());
+    Q_UNUSED(hasSelection)
+    menu.exec(m_table->viewport()->mapToGlobal(pos));
 }
 
 void ItemPanel::setDrawer(const Drawer &drawer, const QString &groupName,

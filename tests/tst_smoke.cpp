@@ -1,5 +1,6 @@
 #include <QComboBox>
 #include <QLabel>
+#include <QMimeData>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QTableView>
@@ -13,7 +14,9 @@
 #include "data/SqliteMappingRepository.h"
 #include "data/SqliteOrganizationRepository.h"
 #include "export/CsvExporter.h"
+#include "ui/ItemMime.h"
 #include "ui/ItemPanel.h"
+#include "ui/ItemTableModel.h"
 #include "tools/CapacitorStrip.h"
 #include "tools/ColorBandStrip.h"
 #include "tools/CapacitorWidget.h"
@@ -149,6 +152,51 @@ private slots:
         QCOMPARE(items.inDrawer(drawer.id).first().quantity, 4);
         QCOMPARE(changed.count(), 3);
         QVERIFY(table->selectionModel()->hasSelection()); // Selection survives the reload.
+    }
+
+    void itemPanelCopyAndPasteRequests()
+    {
+        Database db(":memory:");
+        SqliteCabinetRepository cabinets(db.connection());
+        SqliteDrawerRepository drawers(db.connection());
+        SqliteItemRepository items(db.connection());
+        DrawerGroup g;
+        g.cabinetId = cabinets.add({0, "C", ""}).id;
+        g.name = "G";
+        g = drawers.addGroup(g);
+        const Drawer drawer = drawers.drawersOf(g.id).first();
+        const Item item = items.add({0, drawer.id, "Resistor", "", "", "", 3, ""});
+
+        ItemPanel panel(items);
+        panel.setDrawer(drawer, "G", {});
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        auto *table = panel.findChild<QTableView *>();
+        table->selectRow(0);
+        table->setFocus();
+
+        QSignalSpy copied(&panel, &ItemPanel::copyRequested);
+        QSignalSpy pasted(&panel, &ItemPanel::pasteRequested);
+        QTest::keyClick(table, Qt::Key_C, Qt::ControlModifier);
+        QCOMPARE(copied.count(), 1);
+        QCOMPARE(copied[0][0].value<QList<int>>(), (QList<int>{item.id}));
+
+        QTest::keyClick(table, Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(pasted.count(), 0); // Nothing was copied yet, so paste is not offered.
+        panel.setCanPaste(true);
+        QTest::keyClick(table, Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(pasted.count(), 1);
+    }
+
+    void draggingItemRowsProducesTheItemMimeData()
+    {
+        ItemTableModel model;
+        model.setItems({Item{11, 1, "A", "", "", "", 1, ""}, Item{12, 1, "B", "", "", "", 1, ""}});
+        QVERIFY(model.flags(model.index(0, 0)) & Qt::ItemIsDragEnabled);
+        QVERIFY(model.supportedDragActions().testFlag(Qt::CopyAction));
+        std::unique_ptr<QMimeData> mime(
+            model.mimeData({model.index(1, 0), model.index(1, 2), model.index(0, 0)}));
+        QCOMPARE(ItemMime::decode(mime.get()), (QList<int>{12, 11})); // One id per row.
     }
 
     void toolsDialogBuildsAllTools()
