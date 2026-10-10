@@ -13,6 +13,7 @@
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteMappingRepository.h"
 #include "data/SqliteOrganizationRepository.h"
+#include "data/UndoLog.h"
 #include "export/CsvExporter.h"
 #include "ui/ItemMime.h"
 #include "ui/ItemPanel.h"
@@ -41,7 +42,7 @@ private slots:
         SqliteMappingRepository mapping(db.connection());
         SqliteOrganizationRepository organization(db.connection());
         CsvExporter exporter;
-        MainWindow window({cabinets, drawers, items, mapping, organization}, exporter);
+        MainWindow window({cabinets, drawers, items, mapping, organization, db.undoLog()}, exporter);
         QCOMPARE(window.windowTitle(), QString("Drawer"));
     }
 
@@ -152,40 +153,6 @@ private slots:
         QCOMPARE(items.inDrawer(drawer.id).first().quantity, 4);
         QCOMPARE(changed.count(), 3);
         QVERIFY(table->selectionModel()->hasSelection()); // Selection survives the reload.
-    }
-
-    void itemPanelCopyAndPasteRequests()
-    {
-        Database db(":memory:");
-        SqliteCabinetRepository cabinets(db.connection());
-        SqliteDrawerRepository drawers(db.connection());
-        SqliteItemRepository items(db.connection());
-        DrawerGroup g;
-        g.cabinetId = cabinets.add({0, "C", ""}).id;
-        g.name = "G";
-        g = drawers.addGroup(g);
-        const Drawer drawer = drawers.drawersOf(g.id).first();
-        const Item item = items.add({0, drawer.id, "Resistor", "", "", "", 3, ""});
-
-        ItemPanel panel(items);
-        panel.setDrawer(drawer, "G", {});
-        panel.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&panel));
-        auto *table = panel.findChild<QTableView *>();
-        table->selectRow(0);
-        table->setFocus();
-
-        QSignalSpy copied(&panel, &ItemPanel::copyRequested);
-        QSignalSpy pasted(&panel, &ItemPanel::pasteRequested);
-        QTest::keyClick(table, Qt::Key_C, Qt::ControlModifier);
-        QCOMPARE(copied.count(), 1);
-        QCOMPARE(copied[0][0].value<QList<int>>(), (QList<int>{item.id}));
-
-        QTest::keyClick(table, Qt::Key_V, Qt::ControlModifier);
-        QCOMPARE(pasted.count(), 0); // Nothing was copied yet, so paste is not offered.
-        panel.setCanPaste(true);
-        QTest::keyClick(table, Qt::Key_V, Qt::ControlModifier);
-        QCOMPARE(pasted.count(), 1);
     }
 
     void draggingItemRowsProducesTheItemMimeData()

@@ -6,7 +6,6 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
-#include <QShortcut>
 #include <QTableView>
 #include <QVBoxLayout>
 
@@ -64,21 +63,12 @@ ItemPanel::ItemPanel(IItemRepository &items, QWidget *parent)
             &ItemPanel::updateButtons);
 
     connect(m_table, &QWidget::customContextMenuRequested, this, &ItemPanel::showContextMenu);
-    auto *copy = new QShortcut(QKeySequence::Copy, this);
-    copy->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(copy, &QShortcut::activated, this, [this] {
-        const QList<int> ids = selectedItemIds();
-        if (!ids.isEmpty())
-            emit copyRequested(ids);
-    });
-    auto *paste = new QShortcut(QKeySequence::Paste, this);
-    paste->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(paste, &QShortcut::activated, this, [this] {
-        if (m_canPaste && m_drawerId)
-            emit pasteRequested();
-    });
-
     clear();
+}
+
+void ItemPanel::selectAll()
+{
+    m_table->selectAll();
 }
 
 void ItemPanel::setCanPaste(bool canPaste)
@@ -96,6 +86,8 @@ void ItemPanel::showContextMenu(const QPoint &pos)
 
     QMenu menu;
     const QList<int> ids = selectedItemIds();
+    menu.addAction(tr("Cut"), QKeySequence::Cut, this, [this, ids] { emit cutRequested(ids); })
+        ->setEnabled(!ids.isEmpty());
     menu.addAction(tr("Copy"), QKeySequence::Copy, this, [this, ids] { emit copyRequested(ids); })
         ->setEnabled(!ids.isEmpty());
     menu.addAction(tr("Paste"), QKeySequence::Paste, this, [this] { emit pasteRequested(); })
@@ -173,7 +165,7 @@ void ItemPanel::adjustQuantity(int delta)
         return;
     }
     reload();
-    emit itemsChanged();
+    emit itemsChanged(tr("Adjust quantity"));
 }
 
 void ItemPanel::addItem()
@@ -190,7 +182,7 @@ void ItemPanel::addItem()
         return;
     }
     reload();
-    emit itemsChanged();
+    emit itemsChanged(tr("Add item"));
 }
 
 void ItemPanel::editItem()
@@ -208,7 +200,7 @@ void ItemPanel::editItem()
         return;
     }
     reload();
-    emit itemsChanged();
+    emit itemsChanged(tr("Edit item"));
 }
 
 void ItemPanel::removeItem()
@@ -229,5 +221,5 @@ void ItemPanel::removeItem()
         return;
     }
     reload();
-    emit itemsChanged();
+    emit itemsChanged(tr("Remove item(s)"));
 }

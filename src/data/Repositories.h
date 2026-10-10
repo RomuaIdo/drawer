@@ -79,6 +79,22 @@ public:
     virtual void import(const Organization &organization) = 0;
 };
 
+// Undo/redo of data changes. Changes accumulate until commit() closes them as one step.
+class IUndoHistory
+{
+public:
+    virtual ~IUndoHistory() = default;
+    // Closes everything changed since the last call as one undoable step; no-op if nothing
+    // changed. Starting a new step discards the redo history.
+    virtual void commit(const QString &label) = 0;
+    virtual bool canUndo() const = 0;
+    virtual bool canRedo() const = 0;
+    virtual QString undoLabel() const = 0;
+    virtual QString redoLabel() const = 0;
+    virtual void undo() = 0;
+    virtual void redo() = 0;
+};
+
 // Bundles the repositories handed to the UI.
 struct Repositories {
     ICabinetRepository &cabinets;
@@ -86,4 +102,5 @@ struct Repositories {
     IItemRepository &items;
     IMappingRepository &mapping;
     IOrganizationRepository &organization;
+    IUndoHistory &undo;
 };

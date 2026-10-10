@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QComboBox>
 #include <QDockWidget>
 #include <QFile>
@@ -12,7 +13,6 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QScrollArea>
-#include <QShortcut>
 #include <QStatusBar>
 #include <QToolBar>
 
@@ -33,6 +33,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_items(repos.items)
     , m_mapping(repos.mapping)
     , m_organization(repos.organization)
+    , m_undo(repos.undo)
     , m_exporter(exporter)
     , m_tools(ToolRegistry::withDefaultTools())
     , m_cabinetCombo(new QComboBox)
@@ -62,12 +63,12 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_panel, &ItemPanel::pasteRequested, this,
             [this] { pasteItems(m_selectedDrawerId); });
     connect(m_view, &CabinetView::itemsDropped, this, &MainWindow::transferItems);
-    // Ctrl+V with the cabinet focused pastes into the selected drawer.
-    auto *pasteOnView = new QShortcut(QKeySequence::Paste, m_view);
-    pasteOnView->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(pasteOnView, &QShortcut::activated, this, [this] { pasteItems(m_selectedDrawerId); });
-    connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::applySearch);
-    connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::updateLowStock);
+    connect(m_panel, &ItemPanel::cutRequested, this, &MainWindow::cutItems);
+    connect(m_panel, &ItemPanel::itemsChanged, this, [this](const QString &what) {
+        recordChange(what);
+        applySearch();
+        updateLowStock();
+    });
     connect(m_view, &CabinetView::drawerActivated, this, &MainWindow::editDrawer);
     connect(m_view, &CabinetView::groupsMoved, this, &MainWindow::moveGroups);
     connect(m_view, &CabinetView::groupContextRequested, this, &MainWindow::showGroupMenu);
@@ -85,6 +86,20 @@ void MainWindow::createActions()
                         &MainWindow::exportMapping);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Quit"), QKeySequence::Quit, this, &QWidget::close);
+
+    auto *editMenu = menuBar()->addMenu(tr("&Edit"));
+    m_undoAction = editMenu->addAction(tr("&Undo"), QKeySequence::Undo, this, &MainWindow::undo);
+    m_redoAction = editMenu->addAction(tr("&Redo"), this, &MainWindow::redo);
+    m_redoAction->setShortcuts({QKeySequence(Qt::CTRL | Qt::Key_Y),
+                                QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Z)});
+    editMenu->addSeparator();
+    editMenu->addAction(tr("Cu&t"), QKeySequence::Cut, this, &MainWindow::editCut);
+    editMenu->addAction(tr("&Copy"), QKeySequence::Copy, this, &MainWindow::editCopy);
+    editMenu->addAction(tr("&Paste"), QKeySequence::Paste, this, &MainWindow::editPaste);
+    editMenu->addSeparator();
+    editMenu->addAction(tr("Select &all"), QKeySequence::SelectAll, this,
+                        &MainWindow::editSelectAll);
+    updateUndoActions();
 
     menuBar()->addMenu(tr("&Tools"))->addAction(tr("&Electronics tools..."), this,
                                                 &MainWindow::showTools);
@@ -192,6 +207,7 @@ void MainWindow::exportOrganization()
 
 void MainWindow::importOrganization()
 {
+    ChangeScope scope(*this, tr("Import organization"));
     const QString path = QFileDialog::getOpenFileName(this, tr("Import organization"), QString(),
                                                       tr("Drawer organization (*.json)"));
     if (path.isEmpty())
@@ -286,6 +302,7 @@ void MainWindow::applySearch()
 
 void MainWindow::addCabinet()
 {
+    ChangeScope scope(*this, tr("Add cabinet"));
     CabinetDialog dialog({}, this);
     if (dialog.exec() == QDialog::Accepted) {
         guarded([&] { reloadCabinets(m_cabinets.add(dialog.cabinet()).id); });
@@ -294,6 +311,7 @@ void MainWindow::addCabinet()
 
 void MainWindow::editCabinet()
 {
+    ChangeScope scope(*this, tr("Edit cabinet"));
     const int id = currentCabinetId();
     if (!id)
         return;
@@ -312,6 +330,7 @@ void MainWindow::editCabinet()
 
 void MainWindow::deleteCabinet()
 {
+    ChangeScope scope(*this, tr("Delete cabinet"));
     const int id = currentCabinetId();
     if (!id)
         return;
@@ -328,6 +347,7 @@ void MainWindow::deleteCabinet()
 
 void MainWindow::addGroup()
 {
+    ChangeScope scope(*this, tr("Add drawer group"));
     const int cabinetId = currentCabinetId();
     if (!cabinetId) {
         QMessageBox::information(this, tr("Drawer group"), tr("Create a cabinet first."));
@@ -352,6 +372,7 @@ void MainWindow::addGroup()
 
 void MainWindow::editGroup(const DrawerGroup &group)
 {
+    ChangeScope scope(*this, tr("Edit drawer group"));
     guarded([&] {
         const QList<DrawerGroup> existing = m_drawers.groupsOf(group.cabinetId);
         const auto sameSize = [&](const DrawerGroup &g) {
@@ -386,6 +407,7 @@ void MainWindow::editGroup(const DrawerGroup &group)
 
 void MainWindow::deleteGroup(const DrawerGroup &group)
 {
+    ChangeScope scope(*this, tr("Delete drawer group"));
     const auto answer = QMessageBox::question(
         this, tr("Delete drawer group"),
         tr("Delete \"%1\" with all its drawers and items?").arg(group.name));
@@ -399,6 +421,7 @@ void MainWindow::deleteGroup(const DrawerGroup &group)
 
 void MainWindow::moveGroups(const QList<DrawerGroup> &groups)
 {
+    ChangeScope scope(*this, tr("Move drawer groups"));
     guarded([&] {
         m_drawers.moveGroups(groups);
         reloadView();
@@ -407,6 +430,7 @@ void MainWindow::moveGroups(const QList<DrawerGroup> &groups)
 
 void MainWindow::editDrawer(const Drawer &drawer)
 {
+    ChangeScope scope(*this, tr("Edit drawer"));
     DrawerDialog dialog(drawer, this);
     if (dialog.exec() == QDialog::Accepted) {
         guarded([&] {
@@ -444,19 +468,115 @@ void MainWindow::showGroupMenu(const DrawerGroup &group, int drawerId, const QPo
 void MainWindow::copyItems(const QList<int> &itemIds)
 {
     m_itemClipboard = itemIds;
+    m_clipboardIsCut = false;
     m_panel->setCanPaste(!m_itemClipboard.isEmpty());
     statusBar()->showMessage(tr("Copied %n item(s)", "", itemIds.size()));
+}
+
+void MainWindow::cutItems(const QList<int> &itemIds)
+{
+    m_itemClipboard = itemIds;
+    m_clipboardIsCut = true;
+    m_panel->setCanPaste(!m_itemClipboard.isEmpty());
+    statusBar()->showMessage(tr("Cut %n item(s); paste them into a drawer to move them", "",
+                                itemIds.size()));
 }
 
 void MainWindow::pasteItems(int drawerId)
 {
     if (m_itemClipboard.isEmpty() || !drawerId)
         return;
-    transferItems(m_itemClipboard, drawerId, true);
+    transferItems(m_itemClipboard, drawerId, !m_clipboardIsCut);
+    if (m_clipboardIsCut) { // Cut items can only be pasted once.
+        m_itemClipboard.clear();
+        m_clipboardIsCut = false;
+        m_panel->setCanPaste(false);
+    }
+}
+
+void MainWindow::editCopy()
+{
+    const QList<int> ids = m_panel->selectedItemIds();
+    if (ids.isEmpty())
+        statusBar()->showMessage(tr("Select items to copy"));
+    else
+        copyItems(ids);
+}
+
+void MainWindow::editCut()
+{
+    const QList<int> ids = m_panel->selectedItemIds();
+    if (ids.isEmpty())
+        statusBar()->showMessage(tr("Select items to cut"));
+    else
+        cutItems(ids);
+}
+
+void MainWindow::editPaste()
+{
+    if (m_selectedDrawerId == 0)
+        statusBar()->showMessage(tr("Select a drawer to paste into"));
+    else
+        pasteItems(m_selectedDrawerId);
+}
+
+// Selects the items when the list has the focus, otherwise the drawer groups.
+void MainWindow::editSelectAll()
+{
+    const QWidget *focus = QApplication::focusWidget();
+    if (focus && m_panel->isAncestorOf(focus))
+        m_panel->selectAll();
+    else
+        m_view->selectAllGroups();
+}
+
+void MainWindow::recordChange(const QString &label)
+{
+    try {
+        m_undo.commit(label);
+    } catch (const DatabaseError &e) {
+        QMessageBox::critical(this, tr("Database error"), QString::fromUtf8(e.what()));
+    }
+    updateUndoActions();
+}
+
+void MainWindow::updateUndoActions()
+{
+    m_undoAction->setEnabled(m_undo.canUndo());
+    m_undoAction->setText(m_undo.canUndo() ? tr("&Undo %1").arg(m_undo.undoLabel()) : tr("&Undo"));
+    m_redoAction->setEnabled(m_undo.canRedo());
+    m_redoAction->setText(m_undo.canRedo() ? tr("&Redo %1").arg(m_undo.redoLabel()) : tr("&Redo"));
+}
+
+void MainWindow::undo()
+{
+    if (!m_undo.canUndo())
+        return;
+    const QString label = m_undo.undoLabel();
+    guarded([&] { m_undo.undo(); });
+    afterHistoryChange(tr("Undid: %1").arg(label));
+}
+
+void MainWindow::redo()
+{
+    if (!m_undo.canRedo())
+        return;
+    const QString label = m_undo.redoLabel();
+    guarded([&] { m_undo.redo(); });
+    afterHistoryChange(tr("Redid: %1").arg(label));
+}
+
+// Everything on screen may have changed; rebuild it from the database.
+void MainWindow::afterHistoryChange(const QString &message)
+{
+    updateUndoActions();
+    guarded([this] { reloadCabinets(); });
+    statusBar()->showMessage(message);
 }
 
 void MainWindow::transferItems(const QList<int> &itemIds, int drawerId, bool copy)
 {
+    ChangeScope scope(*this, copy ? tr("Copy items") : tr("Move items"));
     guarded([&] {
         if (copy)
             m_items.copyItems(itemIds, drawerId);

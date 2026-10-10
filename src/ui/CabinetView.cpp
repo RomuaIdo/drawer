@@ -380,10 +380,7 @@ void CabinetView::keyPressEvent(QKeyEvent *event)
             setSelectedGroups({});
         }
     } else if (event->matches(QKeySequence::SelectAll)) {
-        QSet<int> all;
-        for (const GroupLayout &l : m_layouts)
-            all.insert(l.group.id);
-        setSelectedGroups(all);
+        selectAllGroups();
     } else {
         QWidget::keyPressEvent(event);
     }
@@ -427,6 +424,14 @@ void CabinetView::cancelDrag()
     m_dragShift = {};
     unsetCursor();
     update();
+}
+
+void CabinetView::selectAllGroups()
+{
+    QSet<int> all;
+    for (const GroupLayout &l : m_layouts)
+        all.insert(l.group.id);
+    setSelectedGroups(all);
 }
 
 void CabinetView::setSelectedGroups(const QSet<int> &ids)

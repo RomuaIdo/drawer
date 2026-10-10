@@ -12,6 +12,7 @@
 class CabinetView;
 class ItemPanel;
 class QComboBox;
+class QAction;
 class QLineEdit;
 class ToolsDialog;
 
@@ -45,9 +46,37 @@ private:
     void updateLowStock();
     void showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos);
     void copyItems(const QList<int> &itemIds);
+    void cutItems(const QList<int> &itemIds);
     void pasteItems(int drawerId);
     void transferItems(const QList<int> &itemIds, int drawerId, bool copy);
     void refreshItems();
+
+    // Edit menu: act on the focused part of the window.
+    void editCopy();
+    void editCut();
+    void editPaste();
+    void editSelectAll();
+    void undo();
+    void redo();
+    void afterHistoryChange(const QString &message);
+    void updateUndoActions();
+    // Closes the changes made so far as one undo step.
+    void recordChange(const QString &label);
+
+    // Records a change step when the surrounding user action ends, however it ends.
+    class ChangeScope
+    {
+    public:
+        ChangeScope(MainWindow &window, QString label)
+            : m_window(window), m_label(std::move(label)) {}
+        ~ChangeScope() { m_window.recordChange(m_label); }
+        ChangeScope(const ChangeScope &) = delete;
+        ChangeScope &operator=(const ChangeScope &) = delete;
+
+    private:
+        MainWindow &m_window;
+        QString m_label;
+    };
 
     // Runs `action`, reporting persistence errors to the user.
     template <typename Fn> void guarded(Fn &&action);
@@ -57,6 +86,7 @@ private:
     IItemRepository &m_items;
     IMappingRepository &m_mapping;
     IOrganizationRepository &m_organization;
+    IUndoHistory &m_undo;
     const IExporter &m_exporter;
     ToolRegistry m_tools;
     ToolsDialog *m_toolsDialog = nullptr;
@@ -67,5 +97,8 @@ private:
     QList<ItemDialog::DrawerChoice> m_drawerChoices;
     QHash<int, QString> m_groupNames; // Group id -> name, for the current cabinet.
     int m_selectedDrawerId = 0;
-    QList<int> m_itemClipboard; // Items copied with Copy, waiting to be pasted.
+    QList<int> m_itemClipboard; // Items copied or cut, waiting to be pasted.
+    bool m_clipboardIsCut = false; // Pasting then moves the items instead of copying them.
+    QAction *m_undoAction = nullptr;
+    QAction *m_redoAction = nullptr;
 };

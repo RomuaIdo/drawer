@@ -35,6 +35,7 @@ public:
 
     // Blocks currently selected for moving (Ctrl+click, rubber band or Ctrl+A).
     QSet<int> selectedGroups() const { return m_selectedGroups; }
+    void selectAllGroups();
 
 signals:
     void drawerSelected(const Drawer &drawer);
