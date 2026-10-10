@@ -99,6 +99,22 @@ public:
     virtual void import(const Organization &organization) = 0;
 };
 
+// The pick list (components to take out) and the restock list (components to put in).
+class IListRepository
+{
+public:
+    virtual ~IListRepository() = default;
+    virtual QList<ListLine> lines(ListKind kind) const = 0;
+    // Puts item entries on the list with quantity 1; an entry already there gets one more.
+    virtual void add(ListKind kind, const QList<int> &itemIds) = 0;
+    virtual void setQuantity(int lineId, int quantity) = 0; // At least 1.
+    virtual void remove(const QList<int> &lineIds) = 0;
+    virtual void clear(ListKind kind) = 0;
+    // Takes the quantities out of stock (never below zero) or puts them in, then empties the
+    // list; all or nothing.
+    virtual ListResult apply(ListKind kind) = 0;
+};
+
 // Undo/redo of data changes. Changes accumulate until commit() closes them as one step.
 class IUndoHistory
 {
@@ -122,5 +138,6 @@ struct Repositories {
     IItemRepository &items;
     IMappingRepository &mapping;
     IOrganizationRepository &organization;
+    IListRepository &lists;
     IUndoHistory &undo;
 };

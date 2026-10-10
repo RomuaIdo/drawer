@@ -22,6 +22,7 @@
 #include "GroupDialog.h"
 #include "AllItemsPanel.h"
 #include "ItemPanel.h"
+#include "ListPanel.h"
 #include "core/Layout.h"
 #include "data/ItemSearch.h"
 #include "tools/ToolsDialog.h"
@@ -35,6 +36,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_items(repos.items)
     , m_mapping(repos.mapping)
     , m_organization(repos.organization)
+    , m_lists(repos.lists)
     , m_undo(repos.undo)
     , m_exporter(exporter)
     , m_tools(ToolRegistry::withDefaultTools())
@@ -42,6 +44,8 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_view(new CabinetView)
     , m_panel(new ItemPanel(repos.items))
     , m_allItems(new AllItemsPanel(repos.items))
+    , m_pickList(new ListPanel(ListKind::Pick, repos.lists))
+    , m_restockList(new ListPanel(ListKind::Restock, repos.lists))
     , m_itemTabs(new QTabWidget)
     , m_search(new QLineEdit)
     , m_category(new QComboBox)
@@ -56,6 +60,8 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
 
     m_itemTabs->addTab(m_panel, tr("Selected drawer"));
     m_itemTabs->addTab(m_allItems, tr("All items"));
+    m_itemTabs->addTab(m_pickList, tr("Pick list"));
+    m_itemTabs->addTab(m_restockList, tr("Restock list"));
     auto *dock = new QDockWidget(tr("Items"), this);
     dock->setWidget(m_itemTabs);
     addDockWidget(Qt::RightDockWidgetArea, dock);
@@ -75,17 +81,30 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_allItems, &AllItemsPanel::itemsChanged, this, [this](const QString &what) {
         recordChange(what);
         refreshCategories();
+        refreshLists();
         m_panel->reload();
         applySearch();
         updateLowStock();
     });
     connect(m_allItems, &AllItemsPanel::drawersActivated, this,
             [this] { m_itemTabs->setCurrentWidget(m_panel); });
-    // Leaving the "All items" tab drops its emphasis; coming back restores it.
-    connect(m_itemTabs, &QTabWidget::currentChanged, this, [this] {
-        showItemDrawers(m_itemTabs->currentWidget() == m_allItems ? m_allItems->selectedDrawerIds()
-                                                                  : QList<int>());
-    });
+    // Each tab points at the drawers of its own selection; leaving a tab drops its emphasis.
+    connect(m_itemTabs, &QTabWidget::currentChanged, this,
+            [this] { showItemDrawers(drawersOfCurrentTab()); });
+    for (ListPanel *list : {m_pickList, m_restockList}) {
+        connect(list, &ListPanel::drawersChosen, this, &MainWindow::showItemDrawers);
+        connect(list, &ListPanel::listChanged, this, [this](const QString &what) {
+            recordChange(what);
+            refreshLists();
+        });
+        // Applying changes the stock: everything that shows quantities follows.
+        connect(list, &ListPanel::applied, this, [this](const QString &what) {
+            recordChange(what);
+            refreshItems();
+        });
+    }
+    connect(m_panel, &ItemPanel::addToListRequested, this, &MainWindow::addToList);
+    connect(m_allItems, &AllItemsPanel::addToListRequested, this, &MainWindow::addToList);
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
     connect(m_category, &QComboBox::currentIndexChanged, this, [this] {
         m_allItems->setCategoryFilter(m_category->currentData().toString());
@@ -100,6 +119,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
         recordChange(what);
         refreshCategories();
         m_allItems->reload();
+        refreshLists();
         applySearch();
         updateLowStock();
     });
@@ -216,6 +236,7 @@ void MainWindow::reloadView()
     updateLowStock();
     refreshCategories();
     m_allItems->setDestinations(m_drawerChoices);
+    refreshLists();
     m_allItems->setCabinet(currentCabinetId());
     m_view->setEmphasizedDrawers({});
 
@@ -367,6 +388,45 @@ void MainWindow::applySearch()
 }
 
 // Keeps the category list in step with the items; a category that vanished stops filtering.
+QList<int> MainWindow::drawersOfCurrentTab() const
+{
+    const QWidget *tab = m_itemTabs->currentWidget();
+    if (tab == m_allItems)
+        return m_allItems->selectedDrawerIds();
+    if (tab == m_pickList)
+        return m_pickList->selectedDrawerIds();
+    if (tab == m_restockList)
+        return m_restockList->selectedDrawerIds();
+    return {};
+}
+
+// Reloads both lists and shows how many lines each one holds in its tab title.
+void MainWindow::refreshLists()
+{
+    m_pickList->reload();
+    m_restockList->reload();
+    const auto title = [](const QString &name, int lines) {
+        return lines > 0 ? QString("%1 (%2)").arg(name).arg(lines) : name;
+    };
+    m_itemTabs->setTabText(m_itemTabs->indexOf(m_pickList), title(tr("Pick list"), m_pickList->lineCount()));
+    m_itemTabs->setTabText(m_itemTabs->indexOf(m_restockList),
+                           title(tr("Restock list"), m_restockList->lineCount()));
+}
+
+void MainWindow::addToList(ListKind kind, const QList<int> &itemIds)
+{
+    if (itemIds.isEmpty())
+        return;
+    const bool pick = kind == ListKind::Pick;
+    ChangeScope scope(*this, pick ? tr("Add to pick list") : tr("Add to restock list"));
+    guarded([&] {
+        m_lists.add(kind, itemIds);
+        refreshLists();
+        statusBar()->showMessage(pick ? tr("Added %n item(s) to the pick list", "", itemIds.size())
+                                      : tr("Added %n item(s) to the restock list", "", itemIds.size()));
+    });
+}
+
 void MainWindow::refreshCategories()
 {
     const QString previous = m_category->currentData().toString();
@@ -707,6 +767,7 @@ void MainWindow::refreshItems()
     m_panel->reload();
     refreshCategories();
     m_allItems->reload();
+    refreshLists();
     applySearch();
     updateLowStock();
 }

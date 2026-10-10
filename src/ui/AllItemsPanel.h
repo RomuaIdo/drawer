@@ -46,9 +46,12 @@ signals:
     void drawersActivated(const QList<int> &drawerIds);
     // Items were changed; `description` names what, for the undo history.
     void itemsChanged(const QString &description);
+    // The user asked to put the selected entry on the pick or the restock list.
+    void addToListRequested(ListKind kind, const QList<int> &itemIds);
 
 private:
     void updateButtons();
+    void showContextMenu(const QPoint &pos);
     // Reloads and selects the row of `itemId` again, if it is still listed.
     void reloadKeeping(int itemId);
 

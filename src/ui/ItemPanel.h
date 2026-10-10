@@ -36,6 +36,8 @@ signals:
     void itemsChanged(const QString &description);
     void copyRequested(const QList<int> &itemIds);
     void cutRequested(const QList<int> &itemIds);
+    // The user asked to put the selected entries on the pick or the restock list.
+    void addToListRequested(ListKind kind, const QList<int> &itemIds);
     void pasteRequested(); // Into the drawer shown in the panel.
 
 private:

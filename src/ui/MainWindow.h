@@ -12,6 +12,7 @@
 class CabinetView;
 class AllItemsPanel;
 class ItemPanel;
+class ListPanel;
 class QComboBox;
 class QAction;
 class QLineEdit;
@@ -48,6 +49,9 @@ private:
     void applySearch();
     void updateLowStock();
     void refreshCategories();
+    void refreshLists();
+    void addToList(ListKind kind, const QList<int> &itemIds);
+    QList<int> drawersOfCurrentTab() const;
     void showItemDrawers(const QList<int> &drawerIds); // From the "All items" tab.
     void showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos);
     void copyItems(const QList<int> &itemIds);
@@ -93,6 +97,7 @@ private:
     IItemRepository &m_items;
     IMappingRepository &m_mapping;
     IOrganizationRepository &m_organization;
+    IListRepository &m_lists;
     IUndoHistory &m_undo;
     const IExporter &m_exporter;
     ToolRegistry m_tools;
@@ -101,6 +106,8 @@ private:
     CabinetView *m_view;
     ItemPanel *m_panel;
     AllItemsPanel *m_allItems;
+    ListPanel *m_pickList;
+    ListPanel *m_restockList;
     QTabWidget *m_itemTabs;
     QScrollArea *m_scroll;
     QLineEdit *m_search;

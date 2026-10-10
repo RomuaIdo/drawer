@@ -3,6 +3,7 @@
 #include <QCheckBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableView>
@@ -40,6 +41,7 @@ AllItemsPanel::AllItemsPanel(IItemRepository &items, QWidget *parent)
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->verticalHeader()->hide();
+    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_decrease->setToolTip(tr("Take one from the selected item"));
     m_increase->setToolTip(tr("Add one to the selected item"));
@@ -70,6 +72,7 @@ AllItemsPanel::AllItemsPanel(IItemRepository &items, QWidget *parent)
     });
     connect(m_table, &QTableView::doubleClicked, this,
             [this] { emit drawersActivated(selectedDrawerIds()); });
+    connect(m_table, &QWidget::customContextMenuRequested, this, &AllItemsPanel::showContextMenu);
     connect(m_add, &QPushButton::clicked, this, &AllItemsPanel::addItem);
     connect(m_edit, &QPushButton::clicked, this, &AllItemsPanel::editItem);
     connect(m_remove, &QPushButton::clicked, this, &AllItemsPanel::removeItems);
@@ -154,6 +157,33 @@ QList<int> AllItemsPanel::selectedItemIds() const
 void AllItemsPanel::clearSelection()
 {
     m_table->clearSelection();
+}
+
+// Lists work on one entry, that is, one drawer; merged rows have no single drawer to pick from.
+void AllItemsPanel::showContextMenu(const QPoint &pos)
+{
+    const QModelIndex under = m_table->indexAt(pos);
+    if (under.isValid())
+        m_table->selectRow(under.row());
+
+    const QList<int> ids = selectedItemIds();
+    const bool usable = !ids.isEmpty() && !m_model->grouped();
+    const QString hint = m_model->grouped() ? tr("Ungroup duplicates to choose a drawer") : QString();
+
+    QMenu menu;
+    QAction *pick = menu.addAction(tr("Add to pick list"),
+                                   [this, ids] { emit addToListRequested(ListKind::Pick, ids); });
+    QAction *restock = menu.addAction(tr("Add to restock list"), [this, ids] {
+        emit addToListRequested(ListKind::Restock, ids);
+    });
+    for (QAction *action : {pick, restock}) {
+        action->setEnabled(usable);
+        action->setToolTip(hint);
+    }
+    menu.addSeparator();
+    menu.addAction(tr("Edit"), this, &AllItemsPanel::editItem)->setEnabled(!ids.isEmpty());
+    menu.addAction(tr("Remove"), this, &AllItemsPanel::removeItems)->setEnabled(!ids.isEmpty());
+    menu.exec(m_table->viewport()->mapToGlobal(pos));
 }
 
 void AllItemsPanel::addItem()

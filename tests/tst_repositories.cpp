@@ -6,6 +6,8 @@
 #include "data/SqliteCabinetRepository.h"
 #include "data/SqliteDrawerRepository.h"
 #include "data/SqliteItemRepository.h"
+#include "data/SqliteListRepository.h"
+#include "data/UndoLog.h"
 
 class RepositoriesTest : public QObject
 {
@@ -398,6 +400,117 @@ private slots:
         m_drawers->removeDrawer(9999); // Unknown ids are ignored.
     }
 
+    void pickListTakesEverythingFromStockAtOnce()
+    {
+        SqliteListRepository lists(m_db->connection());
+        const Drawer a = singleDrawer();
+        const Drawer b = singleDrawer();
+        const Item screw = m_items->add({0, a.id, "Screw", "", "M3", "", 50, ""});
+        const Item nut = m_items->add({0, b.id, "Nut", "", "M3", "", 10, ""});
+        const Item rare = m_items->add({0, b.id, "Rare", "", "", "", 2, ""});
+
+        lists.add(ListKind::Pick, {screw.id, nut.id, rare.id, 9999});
+        lists.add(ListKind::Pick, {screw.id}); // Again: one more.
+        QCOMPARE(lists.lines(ListKind::Pick).size(), 3);
+        QVERIFY(lists.lines(ListKind::Restock).isEmpty()); // A separate list.
+
+        for (const ListLine &line : lists.lines(ListKind::Pick)) {
+            if (line.item.name == "Screw") {
+                QCOMPARE(line.quantity, 2);
+                lists.setQuantity(line.id, 8);
+            } else if (line.item.name == "Rare") {
+                lists.setQuantity(line.id, 5); // More than the 2 in stock.
+                QVERIFY(lists.lines(ListKind::Pick).size() == 3);
+            }
+        }
+        const QList<ListLine> lines = lists.lines(ListKind::Pick);
+        QCOMPARE(lines[0].group, QString("Single")); // Ordered by name: Nut, Rare, Screw.
+        QCOMPARE(lines[0].drawerLabel, QString("R1C1"));
+        QVERIFY(!lines[0].isShort());
+        QVERIFY(lines[1].isShort());
+
+        const ListResult result = lists.apply(ListKind::Pick);
+        QCOMPARE(result.lines, 3);
+        QCOMPARE(result.shortLines, 1);
+        QCOMPARE(m_items->find(screw.id)->quantity, 42);
+        QCOMPARE(m_items->find(nut.id)->quantity, 9);
+        QCOMPARE(m_items->find(rare.id)->quantity, 0); // Never below zero.
+        QVERIFY(lists.lines(ListKind::Pick).isEmpty()); // The list is emptied.
+    }
+
+    void restockListPutsEverythingInAtOnce()
+    {
+        SqliteListRepository lists(m_db->connection());
+        const Drawer a = singleDrawer();
+        const Item cap = m_items->add({0, a.id, "Cap", "", "100n", "", 5, ""});
+        const Item led = m_items->add({0, a.id, "LED", "", "", "", 0, ""});
+        lists.add(ListKind::Restock, {cap.id, led.id});
+        for (const ListLine &line : lists.lines(ListKind::Restock))
+            lists.setQuantity(line.id, line.item.name == "Cap" ? 20 : 3);
+        lists.add(ListKind::Pick, {cap.id}); // The other list is not applied.
+
+        const ListResult result = lists.apply(ListKind::Restock);
+        QCOMPARE(result.lines, 2);
+        QCOMPARE(result.shortLines, 0);
+        QCOMPARE(m_items->find(cap.id)->quantity, 25);
+        QCOMPARE(m_items->find(led.id)->quantity, 3);
+        QCOMPARE(lists.lines(ListKind::Pick).size(), 1);
+    }
+
+    void listLineQuantitiesCannotBeBelowOneAndLinesCanBeRemoved()
+    {
+        SqliteListRepository lists(m_db->connection());
+        const Drawer a = singleDrawer();
+        const Item item = m_items->add({0, a.id, "X", "", "", "", 5, ""});
+        lists.add(ListKind::Pick, {item.id});
+        const int lineId = lists.lines(ListKind::Pick).first().id;
+        lists.setQuantity(lineId, 0);
+        QCOMPARE(lists.lines(ListKind::Pick).first().quantity, 1);
+        lists.remove({lineId});
+        QVERIFY(lists.lines(ListKind::Pick).isEmpty());
+
+        lists.add(ListKind::Pick, {item.id});
+        lists.clear(ListKind::Pick);
+        QVERIFY(lists.lines(ListKind::Pick).isEmpty());
+        QCOMPARE(lists.apply(ListKind::Pick).lines, 0); // Nothing to do.
+    }
+
+    void deletingAnItemDropsItsListLines()
+    {
+        SqliteListRepository lists(m_db->connection());
+        const Drawer a = singleDrawer();
+        const Item item = m_items->add({0, a.id, "X", "", "", "", 5, ""});
+        lists.add(ListKind::Pick, {item.id});
+        lists.add(ListKind::Restock, {item.id});
+        m_items->remove(item.id);
+        QVERIFY(lists.lines(ListKind::Pick).isEmpty());
+        QVERIFY(lists.lines(ListKind::Restock).isEmpty());
+    }
+
+    void listsAreUndoable()
+    {
+        SqliteListRepository lists(m_db->connection());
+        const Drawer a = singleDrawer();
+        const Item item = m_items->add({0, a.id, "X", "", "", "", 5, ""});
+        m_db->undoLog().commit("Setup");
+
+        lists.add(ListKind::Pick, {item.id});
+        lists.setQuantity(lists.lines(ListKind::Pick).first().id, 3);
+        m_db->undoLog().commit("Fill the list");
+        lists.apply(ListKind::Pick);
+        m_db->undoLog().commit("Take");
+        QCOMPARE(m_items->find(item.id)->quantity, 2);
+        QVERIFY(lists.lines(ListKind::Pick).isEmpty());
+
+        m_db->undoLog().undo(); // Stock and the list line come back together.
+        QCOMPARE(m_items->find(item.id)->quantity, 5);
+        QCOMPARE(lists.lines(ListKind::Pick).size(), 1);
+        QCOMPARE(lists.lines(ListKind::Pick).first().quantity, 3);
+
+        m_db->undoLog().undo(); // The whole list goes.
+        QVERIFY(lists.lines(ListKind::Pick).isEmpty());
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();
@@ -449,7 +562,7 @@ private slots:
     {
         QSqlQuery q(m_db->connection());
         QVERIFY(q.exec("PRAGMA user_version") && q.next());
-        QCOMPARE(q.value(0).toInt(), 4);
+        QCOMPARE(q.value(0).toInt(), 5);
     }
 
 private:
