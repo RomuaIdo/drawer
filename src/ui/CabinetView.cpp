@@ -3,6 +3,7 @@
 #include <QContextMenuEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <cmath>
 
 namespace {
 
@@ -59,16 +60,16 @@ QSize CabinetView::sizeHint() const
     int maxX = 6;
     int maxY = 4;
     for (const GroupLayout &l : m_layouts) {
-        maxX = std::max(maxX, l.group.posX + l.group.cols);
-        maxY = std::max(maxY, l.group.posY + l.group.rows);
+        maxX = std::max(maxX, int(std::ceil(l.group.posX + l.group.cols)));
+        maxY = std::max(maxY, int(std::ceil(l.group.posY + l.group.rows)));
     }
     return {2 * kMargin + maxX * kCellWidth, 2 * kMargin + maxY * kCellHeight};
 }
 
 QRect CabinetView::cellRect(const DrawerGroup &group, int row, int col) const
 {
-    return QRect(kMargin + (group.posX + col) * kCellWidth,
-                 kMargin + (group.posY + row) * kCellHeight, kCellWidth, kCellHeight);
+    return QRect(kMargin + qRound((group.posX + col) * kCellWidth),
+                 kMargin + qRound((group.posY + row) * kCellHeight), kCellWidth, kCellHeight);
 }
 
 QRect CabinetView::groupRect(const DrawerGroup &group) const

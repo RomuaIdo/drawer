@@ -19,8 +19,8 @@ struct DrawerGroup {
     QString name;
     int rows = 1;
     int cols = 1;
-    int posX = 0; // Block position in the cabinet layout, in grid cells.
-    int posY = 0;
+    double posX = 0; // Block position in the cabinet layout, in grid cells.
+    double posY = 0; // Fractional when the block was moved freely.
     DrawerSize defaultSize = DrawerSize::Medium;
 };
 

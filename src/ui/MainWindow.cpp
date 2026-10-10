@@ -246,11 +246,11 @@ void MainWindow::addGroup()
         DrawerGroup proposal;
         proposal.cabinetId = cabinetId;
         proposal.rows = proposal.cols = 4;
-        proposal.posY = Layout::nextFreeRow(existing);
 
-        GroupDialog dialog(proposal,
-                           [&](const DrawerGroup &g) { return !Layout::collides(g, existing); },
-                           this);
+        GroupDialog dialog(
+            proposal, [&](const DrawerGroup &g) { return !Layout::collides(g, existing); },
+            [&](int rows, int cols) { return Layout::suggestPosition(existing, rows, cols); },
+            this);
         if (dialog.exec() == QDialog::Accepted) {
             m_drawers.addGroup(dialog.group());
             reloadView();
@@ -262,9 +262,8 @@ void MainWindow::editGroup(const DrawerGroup &group)
 {
     guarded([&] {
         const QList<DrawerGroup> existing = m_drawers.groupsOf(group.cabinetId);
-        GroupDialog dialog(group,
-                           [&](const DrawerGroup &g) { return !Layout::collides(g, existing); },
-                           this);
+        GroupDialog dialog(
+            group, [&](const DrawerGroup &g) { return !Layout::collides(g, existing); }, {}, this);
         if (dialog.exec() == QDialog::Accepted) {
             m_drawers.updateGroup(dialog.group());
             reloadView();

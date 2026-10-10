@@ -11,8 +11,8 @@ QList<DrawerGroup> SqliteDrawerRepository::groupsOf(int cabinetId) const
         {cabinetId});
     while (q.next()) {
         result.append({q.value(0).toInt(), q.value(1).toInt(), q.value(2).toString(),
-                       q.value(3).toInt(), q.value(4).toInt(), q.value(5).toInt(),
-                       q.value(6).toInt(), drawerSizeFromString(q.value(7).toString())});
+                       q.value(3).toInt(), q.value(4).toInt(), q.value(5).toDouble(),
+                       q.value(6).toDouble(), drawerSizeFromString(q.value(7).toString())});
     }
     return result;
 }

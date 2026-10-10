@@ -3,9 +3,11 @@
 #include <QDialog>
 #include <functional>
 
+#include "core/Layout.h"
 #include "core/Models.h"
 
 class QLineEdit;
+class QDoubleSpinBox;
 class QSpinBox;
 class SizeComboBox;
 
@@ -17,19 +19,28 @@ class GroupDialog : public QDialog
 public:
     // Returns true if the candidate placement is free of collisions.
     using PlacementCheck = std::function<bool(const DrawerGroup &)>;
+    // Proposes a position for a block of the given size.
+    using PositionSuggester = std::function<Layout::Position(int rows, int cols)>;
 
-    GroupDialog(const DrawerGroup &group, PlacementCheck isFree, QWidget *parent = nullptr);
+    // `suggest` may be empty; when set, the position follows the size until edited by hand.
+    GroupDialog(const DrawerGroup &group, PlacementCheck isFree, PositionSuggester suggest,
+                QWidget *parent = nullptr);
     DrawerGroup group() const;
 
     void accept() override;
 
 private:
+    void suggestPosition();
+
     DrawerGroup m_group;
     PlacementCheck m_isFree;
     QLineEdit *m_name;
     QSpinBox *m_rows;
     QSpinBox *m_cols;
-    QSpinBox *m_posX;
-    QSpinBox *m_posY;
+    QDoubleSpinBox *m_posX;
+    QDoubleSpinBox *m_posY;
+    PositionSuggester m_suggest;
+    bool m_autoPosition = false;
+    bool m_updatingPosition = false;
     SizeComboBox *m_size;
 };
