@@ -11,6 +11,7 @@
 #include "data/SqliteOrganizationRepository.h"
 #include "export/CsvExporter.h"
 #include "tools/CapacitorStrip.h"
+#include "tools/ColorBandStrip.h"
 #include "tools/CapacitorWidget.h"
 #include "tools/FormulaWidgets.h"
 #include "tools/ResistorWidget.h"
@@ -43,6 +44,19 @@ private slots:
         widget.show();
         QVERIFY(widget.findChild<CapacitorStrip *>());
         QVERIFY(!widget.grab().isNull()); // Painting does not crash.
+    }
+
+    void resistorKeepsItsSizeInALargeWidget()
+    {
+        ColorBandStrip strip;
+        strip.setBands({ResistorCode::Color::Brown, ResistorCode::Color::Black,
+                        ResistorCode::Color::Red, ResistorCode::Color::Gold});
+        strip.resize(1600, 200);
+        const QImage image = strip.grab().toImage();
+        const QColor background = image.pixelColor(0, 0);
+        // Far left and right of the part are untouched: neither body nor leads grow.
+        for (int x : {5, 400, 1200, 1595})
+            QCOMPARE(image.pixelColor(x, 100), background);
     }
 
     void smdToolDrawsMarking()
