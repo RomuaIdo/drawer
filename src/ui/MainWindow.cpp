@@ -57,6 +57,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
     connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::applySearch);
     connect(m_view, &CabinetView::drawerActivated, this, &MainWindow::editDrawer);
+    connect(m_view, &CabinetView::groupMoved, this, &MainWindow::moveGroup);
     connect(m_view, &CabinetView::groupContextRequested, this, &MainWindow::showGroupMenu);
 
     guarded([this] { reloadCabinets(); });
@@ -120,6 +121,7 @@ void MainWindow::reloadCabinets(int selectId)
 
 void MainWindow::reloadView()
 {
+    const int previouslySelected = m_selectedDrawerId;
     QList<CabinetView::GroupLayout> layouts;
     if (currentCabinetId()) {
         guarded([&] {
@@ -137,6 +139,14 @@ void MainWindow::reloadView()
     m_selectedDrawerId = 0;
     m_panel->clear();
     applySearch();
+
+    // Keep the selection across reloads that did not remove the drawer.
+    for (const auto &l : layouts) {
+        for (const Drawer &d : l.drawers) {
+            if (d.id == previouslySelected)
+                selectDrawer(d);
+        }
+    }
 }
 
 void MainWindow::showTools()
@@ -284,6 +294,17 @@ void MainWindow::deleteGroup(const DrawerGroup &group)
     }
 }
 
+void MainWindow::moveGroup(const DrawerGroup &group, double x, double y)
+{
+    DrawerGroup moved = group;
+    moved.posX = x;
+    moved.posY = y;
+    guarded([&] {
+        m_drawers.updateGroup(moved);
+        reloadView();
+    });
+}
+
 void MainWindow::editDrawer(const Drawer &drawer)
 {
     DrawerDialog dialog(drawer, this);
@@ -300,5 +321,11 @@ void MainWindow::showGroupMenu(const DrawerGroup &group, const QPoint &globalPos
     QMenu menu;
     menu.addAction(tr("Edit group \"%1\"").arg(group.name), [&] { editGroup(group); });
     menu.addAction(tr("Delete group"), [&] { deleteGroup(group); });
+    menu.addSeparator();
+    QAction *free = menu.addAction(tr("Move freely (ignore grid)"));
+    free->setCheckable(true);
+    free->setChecked(m_view->freeMove());
+    free->setToolTip(tr("Applies to every block you drag until turned off"));
+    connect(free, &QAction::toggled, m_view, &CabinetView::setFreeMove);
     menu.exec(globalPos);
 }

@@ -74,6 +74,27 @@ private slots:
         }
     }
 
+    void dragSnapsToGridByDefault()
+    {
+        const auto pos = Layout::dragTarget({1, 1}, 2.4, 0.6, true);
+        QCOMPARE(pos.x, 3.0);
+        QCOMPARE(pos.y, 2.0);
+    }
+
+    void dragFreeKeepsFractions()
+    {
+        const auto pos = Layout::dragTarget({1, 1}, 2.4, 0.6, false);
+        QVERIFY(qFuzzyCompare(pos.x, 3.4));
+        QVERIFY(qFuzzyCompare(pos.y, 1.6));
+    }
+
+    void dragIsClampedToOrigin()
+    {
+        const auto pos = Layout::dragTarget({1, 1}, -5, -0.2, false);
+        QCOMPARE(pos.x, 0.0);
+        QVERIFY(qFuzzyCompare(pos.y, 0.8));
+    }
+
     void fractionalPositionsOverlap()
     {
         DrawerGroup a = group(1, 0, 0, 2, 2);

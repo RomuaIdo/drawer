@@ -33,6 +33,7 @@ private:
     void addGroup();
     void editGroup(const DrawerGroup &group);
     void deleteGroup(const DrawerGroup &group);
+    void moveGroup(const DrawerGroup &group, double x, double y);
     void editDrawer(const Drawer &drawer);
     void showTools();
     void exportMapping();

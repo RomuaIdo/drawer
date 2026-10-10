@@ -23,4 +23,8 @@ bool collides(const DrawerGroup &group, const QList<DrawerGroup> &others);
 // filling gaps over growing the layout. Ties go to the top-left.
 Position suggestPosition(const QList<DrawerGroup> &groups, int rows, int cols);
 
+// Where a block ends up when dragged by (dx, dy) grid cells from `start`.
+// With `snap` the result lands on whole cells; it never goes above or left of the origin.
+Position dragTarget(Position start, double dx, double dy, bool snap);
+
 } // namespace Layout

@@ -90,4 +90,15 @@ Position suggestPosition(const QList<DrawerGroup> &groups, int rows, int cols)
     return best ? best->position : Position{0, height};
 }
 
+Position dragTarget(Position start, double dx, double dy, bool snap)
+{
+    double x = start.x + dx;
+    double y = start.y + dy;
+    if (snap) {
+        x = std::round(x);
+        y = std::round(y);
+    }
+    return {std::max(0.0, x), std::max(0.0, y)};
+}
+
 } // namespace Layout
