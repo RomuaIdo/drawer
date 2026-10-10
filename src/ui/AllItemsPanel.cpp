@@ -54,11 +54,25 @@ void AllItemsPanel::setCabinet(int cabinetId)
     reload();
 }
 
+void AllItemsPanel::setCategoryFilter(const QString &category)
+{
+    if (category == m_category)
+        return;
+    m_category = category;
+    reload();
+}
+
 void AllItemsPanel::reload()
 {
     m_table->clearSelection();
     try {
-        m_model->setEntries(m_cabinetId ? m_items.inCabinet(m_cabinetId) : QList<ItemEntry>());
+        QList<ItemEntry> entries = m_cabinetId ? m_items.inCabinet(m_cabinetId) : QList<ItemEntry>();
+        if (!m_category.isEmpty()) {
+            entries.removeIf([this](const ItemEntry &e) {
+                return e.item.category.trimmed().compare(m_category, Qt::CaseInsensitive) != 0;
+            });
+        }
+        m_model->setEntries(entries);
     } catch (const DatabaseError &e) {
         QMessageBox::critical(this, tr("Database error"), e.what());
     }

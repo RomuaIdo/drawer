@@ -13,7 +13,7 @@ struct Prefix {
 };
 
 const Prefix kPrefixes[] = {
-    {'p', -12}, {'n', -9}, {'u', -6}, {QChar(0x00b5), -6}, {'m', -3},
+    {'p', -12}, {'n', -9}, {'u', -6}, {QChar(0x00b5), -6}, {QChar(0x03bc), -6}, {'m', -3},
     {'k', 3}, {'K', 3}, {'M', 6}, {'G', 9}, {'R', 0},
 };
 
@@ -35,14 +35,14 @@ std::optional<double> parse(const QString &text)
     const QString t = QString(text).remove(' ');
 
     // Infix notation: 4k7, 4R7, R47.
-    static const QRegularExpression infix(R"(^(\d*)([pnuµmkKMGR])(\d+)$)");
+    static const QRegularExpression infix(R"(^(\d*)([pnuµμmkKMGR])(\d+)$)");
     if (auto m = infix.match(t); m.hasMatch()) {
         const double mantissa = (m.captured(1) + "." + m.captured(3)).toDouble();
         return mantissa * std::pow(10.0, *exponentOf(m.captured(2)));
     }
 
     static const QRegularExpression plain(
-        R"(^(\d+\.?\d*|\.\d+)([pnuµmkKMGR]?)(?:Ω|ohms?|F|f)?$)",
+        R"(^(\d+\.?\d*|\.\d+)([pnuµμmkKMGR]?)(?:Ω|ohms?|F|f)?$)",
         QRegularExpression::CaseInsensitiveOption);
     // Prefix case matters (m vs M), so re-check it against the original text.
     if (auto m = plain.match(t); m.hasMatch()) {

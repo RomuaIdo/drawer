@@ -1,5 +1,7 @@
 #include "SqliteItemRepository.h"
 
+#include <QSet>
+
 #include "SqlUtil.h"
 
 namespace {
@@ -187,4 +189,27 @@ void SqliteItemRepository::copyItems(const QList<int> &ids, int drawerId)
             "FROM items WHERE id = ?",
             {drawerId, id});
     tx.commit();
+}
+
+QList<Item> SqliteItemRepository::all() const
+{
+    return readAll(SqlUtil::exec(m_db, QString(kSelect) + "ORDER BY i.name"));
+}
+
+QStringList SqliteItemRepository::categories() const
+{
+    QSqlQuery q = SqlUtil::exec(m_db,
+        "SELECT DISTINCT trim(category) FROM items WHERE trim(category) <> ''");
+    // Keep the first spelling of each category.
+    QStringList result;
+    QSet<QString> seen;
+    while (q.next()) {
+        const QString category = q.value(0).toString();
+        if (!seen.contains(category.toLower())) {
+            seen.insert(category.toLower());
+            result.append(category);
+        }
+    }
+    result.sort(Qt::CaseInsensitive);
+    return result;
 }

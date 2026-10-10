@@ -47,6 +47,7 @@ private:
     void selectDrawer(const Drawer &drawer);
     void applySearch();
     void updateLowStock();
+    void refreshCategories();
     void showItemDrawers(const QList<int> &drawerIds); // From the "All items" tab.
     void showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos);
     void copyItems(const QList<int> &itemIds);
@@ -103,6 +104,7 @@ private:
     QTabWidget *m_itemTabs;
     QScrollArea *m_scroll;
     QLineEdit *m_search;
+    QComboBox *m_category;
     QList<ItemDialog::DrawerChoice> m_drawerChoices;
     QHash<int, Drawer> m_drawersById; // Drawers of the current cabinet.
     QHash<int, QString> m_groupNames; // Group id -> name, for the current cabinet.

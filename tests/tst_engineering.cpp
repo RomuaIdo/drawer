@@ -20,6 +20,8 @@ private slots:
         QTest::newRow("unit") << "100 kΩ" << 1e5;
         QTest::newRow("nano") << "100nF" << 1e-7;
         QTest::newRow("micro infix") << "2u2" << 2.2e-6;
+        QTest::newRow("micro sign") << "1µF" << 1e-6;
+        QTest::newRow("greek mu") << "1μF" << 1e-6;
     }
 
     void parseValues()

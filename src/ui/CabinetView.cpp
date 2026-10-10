@@ -214,10 +214,9 @@ void CabinetView::paintEvent(QPaintEvent *)
         for (const Drawer &d : l.drawers) {
             const QRect cell = cellRect(group, d.row, d.col)
                                    .adjusted(kCellPadding, kCellPadding, -kCellPadding, -kCellPadding);
-            const bool highlighted = m_highlighted.contains(d.id);
             QColor fill = drawerColor(group, d.size);
-            if (m_emphasized.contains(d.id))
-                fill = fill.darker(kEmphasisDarkening);
+            if (m_emphasized.contains(d.id) || m_highlighted.contains(d.id))
+                fill = fill.darker(kEmphasisDarkening); // Picked in a list, or matching the search.
             if (d.id == m_selectedDrawerId) {
                 selectedCell = cell;
                 selectedCellColor = fill.darker(kSelectionDarkening);
@@ -226,12 +225,6 @@ void CabinetView::paintEvent(QPaintEvent *)
             p.setPen(QPen(Qt::darkGray, 1));
             p.setBrush(fill);
             p.drawRoundedRect(cell, 4, 4);
-            if (highlighted) {
-                p.setPen(QPen(QColor(0xd8, 0x1b, 0x60), 3));
-                p.setBrush(Qt::NoBrush);
-                p.drawRoundedRect(cell.adjusted(2, 2, -2, -2), 3, 3);
-            }
-
             if (m_lowStock.contains(d.id)) {
                 const QRect badge(cell.right() - 15, cell.top() + 3, 13, 13);
                 p.setPen(Qt::NoPen);

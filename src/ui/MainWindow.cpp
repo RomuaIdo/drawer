@@ -23,6 +23,7 @@
 #include "AllItemsPanel.h"
 #include "ItemPanel.h"
 #include "core/Layout.h"
+#include "data/ItemSearch.h"
 #include "tools/ToolsDialog.h"
 #include "data/DatabaseError.h"
 #include "export/OrganizationJson.h"
@@ -43,6 +44,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_allItems(new AllItemsPanel(repos.items))
     , m_itemTabs(new QTabWidget)
     , m_search(new QLineEdit)
+    , m_category(new QComboBox)
 {
     setWindowTitle(tr("Drawer"));
     resize(1024, 700);
@@ -77,6 +79,10 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
                                                                   : QList<int>());
     });
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
+    connect(m_category, &QComboBox::currentIndexChanged, this, [this] {
+        m_allItems->setCategoryFilter(m_category->currentData().toString());
+        applySearch();
+    });
     connect(m_panel, &ItemPanel::copyRequested, this, &MainWindow::copyItems);
     connect(m_panel, &ItemPanel::pasteRequested, this,
             [this] { pasteItems(m_selectedDrawerId); });
@@ -84,6 +90,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_panel, &ItemPanel::cutRequested, this, &MainWindow::cutItems);
     connect(m_panel, &ItemPanel::itemsChanged, this, [this](const QString &what) {
         recordChange(what);
+        refreshCategories();
         m_allItems->reload();
         applySearch();
         updateLowStock();
@@ -135,10 +142,14 @@ void MainWindow::createActions()
     bar->addSeparator();
     bar->addAction(tr("Add drawer group"), this, &MainWindow::addGroup);
     bar->addSeparator();
-    m_search->setPlaceholderText(tr("Search items..."));
+    m_search->setPlaceholderText(tr("Search items or a value..."));
+    m_search->setToolTip(tr("Text matches name, category, value, package and notes. A value such "
+                            "as 1uF also finds items written 1u or 1000n."));
     m_search->setClearButtonEnabled(true);
     m_search->setMaximumWidth(260);
     bar->addWidget(m_search);
+    m_category->setToolTip(tr("Show only items of this category"));
+    bar->addWidget(m_category);
 }
 
 template <typename Fn> void MainWindow::guarded(Fn &&action)
@@ -195,6 +206,7 @@ void MainWindow::reloadView()
     m_panel->clear();
     applySearch();
     updateLowStock();
+    refreshCategories();
     m_allItems->setCabinet(currentCabinetId());
     m_view->setEmphasizedDrawers({});
 
@@ -333,15 +345,32 @@ void MainWindow::updateLowStock()
 void MainWindow::applySearch()
 {
     QSet<int> drawerIds;
-    const QString text = m_search->text().trimmed();
-    if (!text.isEmpty()) {
+    const SearchQuery query{m_search->text(), m_category->currentData().toString()};
+    if (!query.isEmpty()) {
         guarded([&] {
-            for (const Item &item : m_items.search(text))
+            for (const Item &item : ItemSearch::run(m_items, query))
                 drawerIds.insert(item.drawerId);
         });
         statusBar()->showMessage(tr("%n drawer(s) match", "", drawerIds.size()));
     }
     m_view->setHighlightedDrawers(drawerIds);
+}
+
+// Keeps the category list in step with the items; a category that vanished stops filtering.
+void MainWindow::refreshCategories()
+{
+    const QString previous = m_category->currentData().toString();
+    QStringList categories;
+    guarded([&] { categories = m_items.categories(); });
+
+    QSignalBlocker block(m_category);
+    m_category->clear();
+    m_category->addItem(tr("All categories"), QString());
+    for (const QString &category : categories)
+        m_category->addItem(category, category);
+    const int index = m_category->findData(previous);
+    m_category->setCurrentIndex(index >= 0 ? index : 0);
+    m_allItems->setCategoryFilter(m_category->currentData().toString());
 }
 
 void MainWindow::addCabinet()
@@ -666,6 +695,7 @@ void MainWindow::transferItems(const QList<int> &itemIds, int drawerId, bool cop
 void MainWindow::refreshItems()
 {
     m_panel->reload();
+    refreshCategories();
     m_allItems->reload();
     applySearch();
     updateLowStock();
