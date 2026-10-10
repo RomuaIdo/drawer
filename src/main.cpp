@@ -6,6 +6,7 @@
 #include "data/Database.h"
 #include "data/SqliteCabinetRepository.h"
 #include "data/SqliteDrawerRepository.h"
+#include "data/SqliteItemRepository.h"
 #include "ui/MainWindow.h"
 
 int main(int argc, char *argv[])
@@ -19,8 +20,9 @@ int main(int argc, char *argv[])
         Database database(dir + "/drawer.db");
         SqliteCabinetRepository cabinets(database.connection());
         SqliteDrawerRepository drawers(database.connection());
+        SqliteItemRepository items(database.connection());
 
-        MainWindow window(cabinets, drawers);
+        MainWindow window(cabinets, drawers, items);
         window.show();
         return app.exec();
     } catch (const std::exception &e) {
