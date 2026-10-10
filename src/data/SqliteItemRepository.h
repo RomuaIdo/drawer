@@ -14,6 +14,8 @@ public:
     Item add(Item item) override;
     void update(const Item &item) override;
     void remove(int id) override;
+    QList<Item> lowStock() const override;
+    void adjustQuantity(const QList<int> &ids, int delta) override;
 
 private:
     QSqlDatabase m_db;

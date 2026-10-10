@@ -4,6 +4,7 @@
 
 #include "core/Models.h"
 
+class QCheckBox;
 class QComboBox;
 class QLineEdit;
 class QSpinBox;
@@ -30,5 +31,7 @@ private:
     QLineEdit *m_value;
     QLineEdit *m_package;
     QSpinBox *m_quantity;
+    QCheckBox *m_alert;
+    QSpinBox *m_minStock;
     QLineEdit *m_notes;
 };

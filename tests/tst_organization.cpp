@@ -32,7 +32,7 @@ void populate(Database &db)
     first.size = DrawerSize::Large;
     first.label = "Big one";
     drawers.updateDrawer(first);
-    items.add({0, first.id, "Resistor", "Passive", "4.7k", "0603", 25, "ünïcode, comma"});
+    items.add({0, first.id, "Resistor", "Passive", "4.7k", "0603", 25, "ünïcode, comma", 10});
 }
 
 QJsonObject minimalFile()
@@ -75,6 +75,7 @@ private slots:
         QCOMPARE(group.drawers[0].drawer.size, DrawerSize::Large);
         QCOMPARE(group.drawers[0].drawer.label, QString("Big one"));
         QCOMPARE(group.drawers[0].items[0].notes, QString("ünïcode, comma"));
+        QCOMPARE(*group.drawers[0].items[0].minStock, 10);
         QCOMPARE(group.drawers[1].drawer.size, DrawerSize::Small);
     }
 
@@ -148,6 +149,11 @@ private slots:
             {"row", 0}, {"col", 0}, {"size", "small"},
             {"items", QJsonArray{QJsonObject{{"name", ""}}}}}};
         QTest::newRow("empty item name") << withGroup(g);
+        g = good;
+        g["drawers"] = QJsonArray{QJsonObject{
+            {"row", 0}, {"col", 0}, {"size", "small"},
+            {"items", QJsonArray{QJsonObject{{"name", "X"}, {"minStock", -3}}}}}};
+        QTest::newRow("negative min stock") << withGroup(g);
     }
 
     void rejectsInvalidFiles()

@@ -42,6 +42,7 @@ private:
     void exportMapping();
     void selectDrawer(const Drawer &drawer);
     void applySearch();
+    void updateLowStock();
     void showGroupMenu(const DrawerGroup &group, const QPoint &globalPos);
 
     // Runs `action`, reporting persistence errors to the user.

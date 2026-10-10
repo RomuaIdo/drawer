@@ -19,8 +19,12 @@ constexpr int kMaxGroupSide = 100;
 
 QJsonObject toJson(const Item &item)
 {
-    return {{"name", item.name}, {"category", item.category}, {"value", item.value},
-            {"package", item.package}, {"quantity", item.quantity}, {"notes", item.notes}};
+    QJsonObject object{{"name", item.name}, {"category", item.category}, {"value", item.value},
+                       {"package", item.package}, {"quantity", item.quantity},
+                       {"notes", item.notes}};
+    if (item.minStock)
+        object["minStock"] = *item.minStock;
+    return object;
 }
 
 QJsonObject toJson(const DrawerEntry &entry)
@@ -119,6 +123,8 @@ Item itemFromJson(const QJsonObject &o, const QString &where)
     item.package = requireString(o, "package", where, false);
     item.notes = requireString(o, "notes", where, false);
     item.quantity = o.contains("quantity") ? requireInt(o, "quantity", where, 0, 100000000) : 0;
+    if (o.contains("minStock"))
+        item.minStock = requireInt(o, "minStock", where, 0, 100000000);
     return item;
 }
 

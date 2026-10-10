@@ -25,6 +25,7 @@ ctest --test-dir build --output-on-failure
 - Select several blocks with Ctrl+click or by dragging a rectangle on empty space  (Ctrl+A selects all, Esc clears), then drag any of them to move the whole selection together.
 - Edit a block to give it a custom color (the name tag follows it, darker); "By size" goes back to green, yellow and red for small, medium and large drawers.
 - Drag a block to move it; it snaps to the grid and turns red where it would overlap. Right click a block and enable "Move freely" to drop it anywhere. Esc cancels a drag.
+- The - and + buttons below the item list take or add one to the selected items (several rows can be selected). An item can have an optional minimum stock: at or below it, the row is tinted, and its drawer gets a red badge on the cabinet view.
 - The search box highlights every drawer holding a matching item.
 - File > Export mapping writes the full mapping, including empty drawers, to a CSV file.
 - File > Export organization saves cabinets, blocks, drawers and items to a JSON file; File > Import organization adds the cabinets from such a file to the current data (existing cabinets are kept, and an invalid file changes nothing).

@@ -49,9 +49,10 @@ void SqliteOrganizationRepository::import(const Organization &organization)
                                          .lastInsertId().toInt();
                 for (const Item &i : drawerEntry.items) {
                     SqlUtil::exec(m_db,
-                        "INSERT INTO items (drawer_id, name, category, value, package, quantity, notes) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        {drawerId, i.name, i.category, i.value, i.package, i.quantity, i.notes});
+                        "INSERT INTO items (drawer_id, name, category, value, package, quantity, notes, "
+                        "min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        {drawerId, i.name, i.category, i.value, i.package, i.quantity, i.notes,
+                         i.minStock ? QVariant(*i.minStock) : QVariant(QMetaType::fromType<int>())});
                 }
             }
         }

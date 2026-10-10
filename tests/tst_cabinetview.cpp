@@ -165,6 +165,18 @@ private slots:
         QCOMPARE(image.pixelColor(12 + 2 * 72, 12 + 52 + 26), highlight); // Shared edge.
     }
 
+    void lowStockDrawersGetABadge()
+    {
+        m_view->setLayouts({makeLayout(1, 0, 0, 1, 1)});
+        const QImage before = m_view->grab().toImage();
+        m_view->setLowStockDrawers({100});
+        const QImage after = m_view->grab().toImage();
+        QVERIFY(before != after);
+        // Red badge near the top-right corner of the drawer.
+        const QColor badge = after.pixelColor(12 + 72 - 2 - 9, 12 + 2 + 3 + 3);
+        QVERIFY2(badge.red() > 180 && badge.green() < 80, qPrintable(badge.name()));
+    }
+
     void groupColorOverridesTheSizeColor()
     {
         auto layouts = QList<CabinetView::GroupLayout>{makeLayout(1, 0, 0, 1, 1)};

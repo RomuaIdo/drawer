@@ -25,6 +25,8 @@ public:
     void setLayouts(const QList<GroupLayout> &layouts);
     void setSelectedDrawer(int drawerId);
     void setHighlightedDrawers(const QSet<int> &drawerIds);
+    // Drawers holding items at or below their minimum stock get a warning badge.
+    void setLowStockDrawers(const QSet<int> &drawerIds);
     QSize sizeHint() const override;
 
     // Free mode drops the grid snapping while dragging blocks.
@@ -72,6 +74,7 @@ private:
     QList<GroupLayout> m_layouts;
     int m_selectedDrawerId = 0;
     QSet<int> m_highlighted;
+    QSet<int> m_lowStock;
     QSet<int> m_selectedGroups;
     bool m_freeMove = false;
     QPoint m_pressPos;

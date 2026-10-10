@@ -25,11 +25,12 @@ void CsvExporter::write(const QList<MappingRow> &rows, QIODevice &out) const
         out.write("\xEF\xBB\xBF");
 
     writeLine({"cabinet", "group", "row", "column", "drawer", "size", "item", "category",
-               "value", "package", "quantity", "notes"});
+               "value", "package", "quantity", "min_stock", "low_stock", "notes"});
     for (const MappingRow &r : rows) {
         writeLine({r.cabinet, r.group, QString::number(r.row), QString::number(r.col),
                    r.drawerLabel, drawerSizeToString(r.drawerSize), r.itemName, r.category,
                    r.value, r.package, r.hasItem ? QString::number(r.quantity) : QString(),
-                   r.notes});
+                   r.minStock ? QString::number(*r.minStock) : QString(),
+                   r.lowStock ? QString("yes") : QString(), r.notes});
     }
 }
