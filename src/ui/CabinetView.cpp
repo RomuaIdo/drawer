@@ -16,6 +16,7 @@ constexpr int kCellHeight = 52;
 constexpr int kMargin = 12;
 constexpr int kCellPadding = 2;
 constexpr int kTagDarkening = 190; // Percent; 100 keeps the drawer color.
+constexpr int kSelectionDarkening = 200;
 
 QColor sizeColor(DrawerSize size)
 {
@@ -163,7 +164,14 @@ void CabinetView::paintEvent(QPaintEvent *)
     p.setRenderHint(QPainter::Antialiasing);
     p.fillRect(rect(), palette().window());
 
-    QRect selectedCell; // Outlined after everything else so no neighbor can cover it.
+    // Selection outlines are drawn after everything else so no neighbor can cover them.
+    QRect selectedCell;
+    QColor selectedCellColor;
+    struct BlockOutline {
+        QRect rect;
+        QColor color;
+    };
+    QList<BlockOutline> selectedBlocks;
     for (const GroupLayout &l : m_layouts) {
         const bool beingDragged = m_dragging && m_dragOrigins.contains(l.group.id);
         const DrawerGroup group = displayed(l.group);
@@ -173,10 +181,11 @@ void CabinetView::paintEvent(QPaintEvent *)
             const QRect cell = cellRect(group, d.row, d.col)
                                    .adjusted(kCellPadding, kCellPadding, -kCellPadding, -kCellPadding);
             const bool highlighted = m_highlighted.contains(d.id);
-            if (d.id == m_selectedDrawerId)
-                selectedCell = cell;
-
             const QColor fill = drawerColor(group, d.size);
+            if (d.id == m_selectedDrawerId) {
+                selectedCell = cell;
+                selectedCellColor = fill.darker(kSelectionDarkening);
+            }
             const bool darkFill = fill.lightness() < 140;
             p.setPen(QPen(Qt::darkGray, 1));
             p.setBrush(fill);
@@ -198,20 +207,26 @@ void CabinetView::paintEvent(QPaintEvent *)
 
         // Block outline makes grouped drawers easy to tell apart. Selected blocks use the
         // highlight color; a drag that would overlap another block turns red.
-        QColor outline = Qt::black;
-        if (m_selectedGroups.contains(l.group.id))
-            outline = palette().color(QPalette::Highlight);
-        if (beingDragged && !m_dragValid)
-            outline = QColor(0xd3, 0x20, 0x20);
-        const bool emphasized = beingDragged || m_selectedGroups.contains(l.group.id);
-        p.setPen(QPen(outline, emphasized ? 3 : 2));
-        p.setBrush(Qt::NoBrush);
-        p.drawRect(groupRect(group));
+        if (m_selectedGroups.contains(l.group.id)) {
+            selectedBlocks.append({groupRect(group), beingDragged && !m_dragValid
+                                                         ? QColor(0xd3, 0x20, 0x20)
+                                                         : palette().color(QPalette::Highlight)});
+        } else {
+            p.setPen(QPen(Qt::black, 2));
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(groupRect(group));
+        }
     }
     p.setOpacity(1.0);
 
+    p.setBrush(Qt::NoBrush);
+    for (const BlockOutline &outline : selectedBlocks) {
+        p.setPen(QPen(outline.color, 3));
+        p.drawRect(outline.rect);
+    }
+
     if (!selectedCell.isNull()) {
-        p.setPen(QPen(Qt::blue, 3));
+        p.setPen(QPen(selectedCellColor, 3));
         p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(selectedCell, 4, 4);
     }
@@ -227,11 +242,10 @@ void CabinetView::paintEvent(QPaintEvent *)
 
 void CabinetView::mousePressEvent(QMouseEvent *event)
 {
-    const Hit hit = hitTest(event->pos());
-    // Only the left button works on blocks; either button can drag a selection band.
-    if (event->button() != Qt::LeftButton && (event->button() != Qt::RightButton || hit.layout))
+    if (event->button() != Qt::LeftButton)
         return;
     setFocus();
+    const Hit hit = hitTest(event->pos());
     const bool additive = event->modifiers() & Qt::ControlModifier;
     m_pressPos = event->pos();
     m_pressedGroupId = 0;
@@ -268,7 +282,7 @@ void CabinetView::mousePressEvent(QMouseEvent *event)
 
 void CabinetView::mouseMoveEvent(QMouseEvent *event)
 {
-    if (m_banding && (event->buttons() & (Qt::LeftButton | Qt::RightButton))) {
+    if (m_banding && (event->buttons() & Qt::LeftButton)) {
         updateBand(event->pos());
         return;
     }
@@ -291,13 +305,14 @@ void CabinetView::mouseMoveEvent(QMouseEvent *event)
 
 void CabinetView::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (event->button() != Qt::LeftButton)
+        return;
+
     if (m_banding) {
         m_banding = false;
         update();
         return;
     }
-    if (event->button() != Qt::LeftButton)
-        return;
 
     const bool commit = m_dragging && m_dragValid && (m_dragShift.x != 0 || m_dragShift.y != 0);
     QList<DrawerGroup> moved;
