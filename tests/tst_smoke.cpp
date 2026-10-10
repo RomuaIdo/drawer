@@ -72,6 +72,23 @@ private slots:
         type->setCurrentIndex(0); // Back to automatic.
         QCOMPARE(strip->type(), T::CeramicDisc);
 
+        // What is printed follows the type and the voltage; the size follows the voltage.
+        type->setCurrentIndex(0);
+        input->setText("104K");
+        QCOMPARE(strip->printed(), (QStringList{"104K"}));
+        auto *voltage = widget.findChildren<QLineEdit *>()[1];
+        voltage->setText("50V");
+        QCOMPARE(strip->printed(), (QStringList{"104K", "50V"}));
+        const double bigger = strip->scale();
+        voltage->setText("6.3");
+        QVERIFY(strip->scale() < bigger);
+        voltage->setText("nonsense");
+        QCOMPARE(strip->printed(), (QStringList{"104K"})); // Unreadable voltage is ignored.
+        QCOMPARE(strip->scale(), 1.0);
+        voltage->clear();
+        type->setCurrentIndex(type->findData(int(T::CeramicChip)));
+        QVERIFY(strip->printed().isEmpty()); // Chips are unmarked.
+
         // Every type paints.
         for (int i = 1; i < type->count(); ++i) {
             type->setCurrentIndex(i);

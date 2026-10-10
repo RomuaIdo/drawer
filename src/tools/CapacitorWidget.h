@@ -21,6 +21,7 @@ private:
 
     CapacitorStrip *m_strip;
     QLineEdit *m_input;
+    QLineEdit *m_voltage;
     QComboBox *m_type;
     QLabel *m_result;
 };

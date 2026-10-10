@@ -21,10 +21,12 @@ CapacitorWidget::CapacitorWidget(QWidget *parent)
     : QWidget(parent)
     , m_strip(new CapacitorStrip)
     , m_input(new QLineEdit)
+    , m_voltage(new QLineEdit)
     , m_type(new QComboBox)
     , m_result(makeResultLabel())
 {
     m_input->setPlaceholderText(tr("e.g. 104, 223K, 4R7, 100n, 4u7"));
+    m_voltage->setPlaceholderText(tr("optional, e.g. 50, 6.3V, 1kV"));
     m_type->addItem(tr("Automatic"), kAutomatic);
     for (CapacitorType type : {CapacitorType::CeramicDisc, CapacitorType::CeramicChip,
                                CapacitorType::Film, CapacitorType::Electrolytic,
@@ -34,6 +36,7 @@ CapacitorWidget::CapacitorWidget(QWidget *parent)
 
     auto *form = new QFormLayout;
     form->addRow(tr("Marking or value"), m_input);
+    form->addRow(tr("Voltage"), m_voltage);
     form->addRow(tr("Type"), m_type);
     form->addRow(m_result);
 
@@ -43,6 +46,7 @@ CapacitorWidget::CapacitorWidget(QWidget *parent)
     layout->addStretch();
 
     connect(m_input, &QLineEdit::textChanged, this, &CapacitorWidget::refresh);
+    connect(m_voltage, &QLineEdit::textChanged, this, &CapacitorWidget::refresh);
     connect(m_type, &QComboBox::currentIndexChanged, this, &CapacitorWidget::refresh);
     refresh();
 }
@@ -61,6 +65,12 @@ void CapacitorWidget::refresh()
         type = defaultTypeFor(reading->capacitance.picofarads);
     m_strip->setType(type);
 
+    // The voltage is optional; an unreadable one is reported but does not stop the rest.
+    const QString voltageText = m_voltage->text().trimmed();
+    const auto volts = parseVoltage(voltageText);
+    m_strip->setScale(voltageScale(volts));
+    m_strip->setPrinted(reading ? printedLines(type, *reading, volts) : QStringList());
+
     if (text.isEmpty()) {
         m_result->clear();
         return;
@@ -78,8 +88,10 @@ void CapacitorWidget::refresh()
         tolerance = QString("±%1 pF").arg(*c.tolerancePf);
 
     m_result->setText(
-        tr("Value: %1\nTolerance: %2\nMarking: %3\nDrawn as: %4%5")
+        tr("Value: %1\nTolerance: %2\nMarking: %3\nVoltage: %4\nDrawn as: %5%6")
             .arg(Engineering::format(c.farads(), "F"), tolerance,
                  reading->marking.isEmpty() ? tr("no 3-digit code") : reading->marking,
+                 !volts ? (voltageText.isEmpty() ? tr("not given") : tr("not valid"))
+                        : formatVoltage(*volts),
                  name(type), automatic ? tr(" (automatic)") : QString()));
 }
