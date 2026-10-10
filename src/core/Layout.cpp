@@ -1,13 +1,48 @@
 #include "Layout.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Layout {
 
+namespace {
+
+constexpr double kEpsilon = 1e-9;
+constexpr double kTargetAspect = 1.5; // Width / height of the area to fill.
+
+struct Candidate {
+    Position position;
+    double area;
+    double longestSide;
+};
+
+bool better(const Candidate &a, const Candidate &b)
+{
+    if (std::abs(a.area - b.area) > kEpsilon)
+        return a.area < b.area;
+    if (std::abs(a.longestSide - b.longestSide) > kEpsilon)
+        return a.longestSide < b.longestSide;
+    if (std::abs(a.position.y - b.position.y) > kEpsilon)
+        return a.position.y < b.position.y;
+    return a.position.x < b.position.x;
+}
+
+// Values worth trying on one axis: every whole cell up to the layout edge,
+// plus the exact edges of existing groups (they may be fractional).
+QList<double> axisCandidates(double extent, const QList<double> &edges)
+{
+    QList<double> values = edges;
+    for (int v = 0; v <= int(std::ceil(extent)); ++v)
+        values.append(v);
+    return values;
+}
+
+} // namespace
+
 bool overlaps(const DrawerGroup &a, const DrawerGroup &b)
 {
-    return a.posX < b.posX + b.cols && b.posX < a.posX + a.cols
-        && a.posY < b.posY + b.rows && b.posY < a.posY + a.rows;
+    return a.posX < b.posX + b.cols - kEpsilon && b.posX < a.posX + a.cols - kEpsilon
+        && a.posY < b.posY + b.rows - kEpsilon && b.posY < a.posY + a.rows - kEpsilon;
 }
 
 bool collides(const DrawerGroup &group, const QList<DrawerGroup> &others)
@@ -17,12 +52,42 @@ bool collides(const DrawerGroup &group, const QList<DrawerGroup> &others)
     });
 }
 
-int nextFreeRow(const QList<DrawerGroup> &groups)
+Position suggestPosition(const QList<DrawerGroup> &groups, int rows, int cols)
 {
-    int row = 0;
-    for (const DrawerGroup &g : groups)
-        row = std::max(row, g.posY + g.rows);
-    return row;
+    double width = 0;
+    double height = 0;
+    QList<double> xEdges{0};
+    QList<double> yEdges{0};
+    for (const DrawerGroup &g : groups) {
+        width = std::max(width, g.posX + g.cols);
+        height = std::max(height, g.posY + g.rows);
+        xEdges.append(g.posX + g.cols);
+        yEdges.append(g.posY + g.rows);
+    }
+
+    DrawerGroup probe;
+    probe.rows = rows;
+    probe.cols = cols;
+
+    std::optional<Candidate> best;
+    for (double x : axisCandidates(width, xEdges)) {
+        for (double y : axisCandidates(height, yEdges)) {
+            probe.posX = x;
+            probe.posY = y;
+            if (collides(probe, groups))
+                continue;
+
+            const double w = std::max(width, x + cols);
+            const double h = std::max(height, y + rows);
+            // Smallest landscape box that contains the layout.
+            const double boxW = std::max(w, h * kTargetAspect);
+            const double boxH = std::max(h, w / kTargetAspect);
+            const Candidate candidate{{x, y}, boxW * boxH, std::max(w, h)};
+            if (!best || better(candidate, *best))
+                best = candidate;
+        }
+    }
+    return best ? best->position : Position{0, height};
 }
 
 } // namespace Layout

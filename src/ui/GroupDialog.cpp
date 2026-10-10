@@ -4,6 +4,7 @@
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QDoubleSpinBox>
 #include <QSpinBox>
 
 #include "SizeComboBox.h"
@@ -18,17 +19,29 @@ QSpinBox *makeSpin(int min, int max, int value)
     return spin;
 }
 
+QDoubleSpinBox *makePositionSpin(double value)
+{
+    auto *spin = new QDoubleSpinBox;
+    spin->setRange(0, 999);
+    spin->setDecimals(2);
+    spin->setSingleStep(1);
+    spin->setValue(value);
+    return spin;
+}
+
 } // namespace
 
-GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree, QWidget *parent)
+GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree,
+                         PositionSuggester suggest, QWidget *parent)
     : QDialog(parent)
     , m_group(group)
     , m_isFree(std::move(isFree))
     , m_name(new QLineEdit(group.name))
     , m_rows(makeSpin(1, 20, group.rows))
     , m_cols(makeSpin(1, 20, group.cols))
-    , m_posX(makeSpin(0, 99, group.posX))
-    , m_posY(makeSpin(0, 99, group.posY))
+    , m_posX(makePositionSpin(group.posX))
+    , m_posY(makePositionSpin(group.posY))
+    , m_suggest(std::move(suggest))
     , m_size(new SizeComboBox(group.defaultSize))
 {
     const bool editing = group.id != 0;
@@ -48,8 +61,33 @@ GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree, QWidge
     form->addRow(tr("Default size"), m_size);
     form->addRow(buttons);
 
+    // New groups follow the suggested position until the user picks one by hand.
+    m_autoPosition = !editing && m_suggest;
+    if (m_autoPosition) {
+        suggestPosition();
+        for (QSpinBox *spin : {m_rows, m_cols})
+            connect(spin, &QSpinBox::valueChanged, this, [this] {
+                if (m_autoPosition)
+                    suggestPosition();
+            });
+        for (QDoubleSpinBox *spin : {m_posX, m_posY})
+            connect(spin, &QDoubleSpinBox::valueChanged, this, [this] {
+                if (!m_updatingPosition)
+                    m_autoPosition = false;
+            });
+    }
+
     connect(buttons, &QDialogButtonBox::accepted, this, &GroupDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+}
+
+void GroupDialog::suggestPosition()
+{
+    const Layout::Position pos = m_suggest(m_rows->value(), m_cols->value());
+    m_updatingPosition = true;
+    m_posX->setValue(pos.x);
+    m_posY->setValue(pos.y);
+    m_updatingPosition = false;
 }
 
 DrawerGroup GroupDialog::group() const

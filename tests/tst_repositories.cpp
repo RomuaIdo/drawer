@@ -59,6 +59,21 @@ private slots:
         QCOMPARE(m_drawers->groupsOf(cab).size(), 1);
     }
 
+    void groupPositionKeepsFractions()
+    {
+        DrawerGroup g;
+        g.cabinetId = m_cabinets->add({0, "A", ""}).id;
+        g.name = "Free";
+        g.posX = 2.5;
+        g.posY = 3.25;
+        g = m_drawers->addGroup(g);
+        QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().posX, 2.5);
+        g.posX = 4;
+        m_drawers->updateGroup(g);
+        QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().posX, 4.0);
+        QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().posY, 3.25);
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();
