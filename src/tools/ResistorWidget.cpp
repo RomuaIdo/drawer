@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPixmap>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 #include "ColorBandStrip.h"
@@ -85,6 +86,8 @@ ResistorWidget::ResistorWidget(QWidget *parent)
 
 void ResistorWidget::rebuildBandSelectors()
 {
+    const std::optional<Value> carried = currentValue();
+
     // Dropping the old layout's widgets before installing a new layout.
     delete m_selectorsHost->layout();
     qDeleteAll(m_selectorsHost->findChildren<QWidget *>(Qt::FindDirectChildrenOnly));
@@ -117,8 +120,58 @@ void ResistorWidget::rebuildBandSelectors()
             combo->setCurrentIndex(combo->findData(int(Color::Brown)));
         form->addRow(label, combo);
         m_selectors.append(combo);
-        connect(combo, &QComboBox::currentIndexChanged, this, &ResistorWidget::decodeBands);
+        connect(combo, &QComboBox::currentIndexChanged, this, &ResistorWidget::onBandEdited);
     }
+    decodeBands();
+
+    // Same resistance, new band count.
+    if (carried)
+        applyValue(*carried);
+}
+
+std::optional<ResistorWidget::Value> ResistorWidget::currentValue() const
+{
+    const auto toleranceColor = static_cast<Color>(m_toleranceInput->currentData().toInt());
+    if (const auto typed = Engineering::parse(m_valueInput->text().trimmed()))
+        return Value{*typed, *toleranceOf(toleranceColor), 100};
+
+    if (m_selectors.isEmpty())
+        return std::nullopt;
+    QList<Color> bands;
+    for (QComboBox *combo : m_selectors)
+        bands.append(static_cast<Color>(combo->currentData().toInt()));
+    if (const auto decoded = decode(bands))
+        return Value{decoded->ohms, decoded->tolerancePercent, decoded->tempcoPpm.value_or(100)};
+    return std::nullopt;
+}
+
+bool ResistorWidget::applyValue(const Value &value)
+{
+    const int count = m_bandCount->currentData().toInt();
+    const auto bands = encode(value.ohms, value.tolerancePercent, count, value.tempcoPpm);
+    if (!bands) {
+        m_encodeStatus->setText(tr("Not representable with %1 bands").arg(count));
+        return false;
+    }
+    m_encodeStatus->clear();
+    m_applyingBands = true;
+    for (int i = 0; i < m_selectors.size(); ++i)
+        m_selectors[i]->setCurrentIndex(m_selectors[i]->findData(int((*bands)[i])));
+    m_applyingBands = false;
+    decodeBands();
+    return true;
+}
+
+// A hand-picked band makes the typed value obsolete.
+void ResistorWidget::onBandEdited()
+{
+    if (m_applyingBands)
+        return;
+    {
+        QSignalBlocker block(m_valueInput);
+        m_valueInput->clear();
+    }
+    m_encodeStatus->clear();
     decodeBands();
 }
 
@@ -149,19 +202,10 @@ void ResistorWidget::encodeValue()
         m_encodeStatus->clear();
         return;
     }
-    const auto ohms = Engineering::parse(input);
-    if (!ohms) {
+    if (!Engineering::parse(input)) {
         m_encodeStatus->setText(tr("Not a valid value"));
         return;
     }
-    const Color toleranceColor = static_cast<Color>(m_toleranceInput->currentData().toInt());
-    const int count = m_bandCount->currentData().toInt();
-    const auto bands = encode(*ohms, *toleranceOf(toleranceColor), count);
-    if (!bands) {
-        m_encodeStatus->setText(tr("Not representable with %1 bands").arg(count));
-        return;
-    }
-    m_encodeStatus->setText(tr("Bands set from value"));
-    for (int i = 0; i < m_selectors.size(); ++i)
-        m_selectors[i]->setCurrentIndex(m_selectors[i]->findData(int((*bands)[i])));
+    if (applyValue(*currentValue()))
+        m_encodeStatus->setText(tr("Bands set from value"));
 }

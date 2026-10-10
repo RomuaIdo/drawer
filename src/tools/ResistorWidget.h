@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <optional>
 
 class ColorBandStrip;
 class QComboBox;
@@ -16,9 +17,20 @@ public:
     explicit ResistorWidget(QWidget *parent = nullptr);
 
 private:
+    struct Value {
+        double ohms;
+        double tolerancePercent;
+        int tempcoPpm;
+    };
+
     void rebuildBandSelectors();
+    void onBandEdited();
     void decodeBands();
     void encodeValue();
+    // The value to keep when the band count changes: the typed one, else what the bands say.
+    std::optional<Value> currentValue() const;
+    // Sets the selectors to the bands for `value`; false if the band count cannot express it.
+    bool applyValue(const Value &value);
 
     QComboBox *m_bandCount;
     QWidget *m_selectorsHost;
@@ -28,4 +40,5 @@ private:
     QLineEdit *m_valueInput;
     QComboBox *m_toleranceInput;
     QLabel *m_encodeStatus;
+    bool m_applyingBands = false; // True while selectors are set from code, not by the user.
 };
