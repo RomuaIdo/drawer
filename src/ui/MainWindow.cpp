@@ -23,6 +23,7 @@
 #include "core/Layout.h"
 #include "tools/ToolsDialog.h"
 #include "data/DatabaseError.h"
+#include "export/OrganizationJson.h"
 
 MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWidget *parent)
     : QMainWindow(parent)
@@ -30,6 +31,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_drawers(repos.drawers)
     , m_items(repos.items)
     , m_mapping(repos.mapping)
+    , m_organization(repos.organization)
     , m_exporter(exporter)
     , m_tools(ToolRegistry::withDefaultTools())
     , m_cabinetCombo(new QComboBox)
@@ -66,6 +68,9 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
 void MainWindow::createActions()
 {
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
+    fileMenu->addAction(tr("&Import organization..."), this, &MainWindow::importOrganization);
+    fileMenu->addAction(tr("Export &organization..."), this, &MainWindow::exportOrganization);
+    fileMenu->addSeparator();
     fileMenu->addAction(tr("&Export mapping as %1...").arg(m_exporter.name()), QKeySequence(Qt::CTRL | Qt::Key_E), this,
                         &MainWindow::exportMapping);
     fileMenu->addSeparator();
@@ -146,6 +151,59 @@ void MainWindow::reloadView()
             if (d.id == previouslySelected)
                 selectDrawer(d);
         }
+    }
+}
+
+void MainWindow::exportOrganization()
+{
+    QString path = QFileDialog::getSaveFileName(this, tr("Export organization"),
+                                                "drawer-organization.json",
+                                                tr("Drawer organization (*.json)"));
+    if (path.isEmpty())
+        return;
+    if (QFileInfo(path).suffix().isEmpty())
+        path += ".json";
+
+    guarded([&] {
+        const Organization organization = m_organization.load();
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
+            || file.write(OrganizationJson::write(organization)) < 0) {
+            QMessageBox::critical(this, tr("Export failed"), file.errorString());
+            return;
+        }
+        statusBar()->showMessage(
+            tr("Exported %n cabinet(s) to %1", "", organization.cabinets.size()).arg(path));
+    });
+}
+
+void MainWindow::importOrganization()
+{
+    const QString path = QFileDialog::getOpenFileName(this, tr("Import organization"), QString(),
+                                                      tr("Drawer organization (*.json)"));
+    if (path.isEmpty())
+        return;
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::critical(this, tr("Import failed"), file.errorString());
+        return;
+    }
+    try {
+        const Organization organization = OrganizationJson::read(file.readAll());
+        const auto answer = QMessageBox::question(
+            this, tr("Import organization"),
+            tr("Add %n cabinet(s) from this file? Existing cabinets are kept.", "",
+               organization.cabinets.size()));
+        if (answer != QMessageBox::Yes)
+            return;
+        m_organization.import(organization);
+        reloadCabinets();
+        statusBar()->showMessage(tr("Imported %n cabinet(s)", "", organization.cabinets.size()));
+    } catch (const OrganizationFormatError &e) {
+        QMessageBox::critical(this, tr("Import failed"), QString::fromUtf8(e.what()));
+    } catch (const DatabaseError &e) {
+        QMessageBox::critical(this, tr("Database error"), QString::fromUtf8(e.what()));
     }
 }
 

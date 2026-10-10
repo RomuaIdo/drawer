@@ -8,6 +8,7 @@
 #include "data/SqliteDrawerRepository.h"
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteMappingRepository.h"
+#include "data/SqliteOrganizationRepository.h"
 #include "export/CsvExporter.h"
 #include "ui/MainWindow.h"
 
@@ -24,9 +25,10 @@ int main(int argc, char *argv[])
         SqliteDrawerRepository drawers(database.connection());
         SqliteItemRepository items(database.connection());
         SqliteMappingRepository mapping(database.connection());
+        SqliteOrganizationRepository organization(database.connection());
         CsvExporter exporter;
 
-        MainWindow window({cabinets, drawers, items, mapping}, exporter);
+        MainWindow window({cabinets, drawers, items, mapping, organization}, exporter);
         window.show();
         return app.exec();
     } catch (const std::exception &e) {
