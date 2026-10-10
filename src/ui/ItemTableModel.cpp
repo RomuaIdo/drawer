@@ -1,6 +1,9 @@
 #include "ItemTableModel.h"
 
 #include <QColor>
+#include <QMimeData>
+
+#include "ItemMime.h"
 
 namespace {
 enum Column { Name, Category, Value, Package, Quantity, MinStock, Notes, ColumnCount };
@@ -13,6 +16,33 @@ int ItemTableModel::rowOfItem(int itemId) const
             return row;
     }
     return -1;
+}
+
+Qt::ItemFlags ItemTableModel::flags(const QModelIndex &index) const
+{
+    const Qt::ItemFlags base = QAbstractTableModel::flags(index);
+    return index.isValid() ? base | Qt::ItemIsDragEnabled : base;
+}
+
+QStringList ItemTableModel::mimeTypes() const
+{
+    return {ItemMime::kType};
+}
+
+QMimeData *ItemTableModel::mimeData(const QModelIndexList &indexes) const
+{
+    QList<int> ids;
+    for (const QModelIndex &index : indexes) {
+        const int id = m_items.at(index.row()).id;
+        if (!ids.contains(id))
+            ids.append(id);
+    }
+    return ItemMime::encode(ids);
+}
+
+Qt::DropActions ItemTableModel::supportedDragActions() const
+{
+    return Qt::MoveAction | Qt::CopyAction;
 }
 
 void ItemTableModel::setItems(const QList<Item> &items)

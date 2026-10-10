@@ -16,6 +16,8 @@ public:
     void remove(int id) override;
     QList<Item> lowStock() const override;
     void adjustQuantity(const QList<int> &ids, int delta) override;
+    void moveItems(const QList<int> &ids, int drawerId) override;
+    void copyItems(const QList<int> &ids, int drawerId) override;
 
 private:
     QSqlDatabase m_db;
