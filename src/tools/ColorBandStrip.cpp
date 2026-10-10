@@ -48,12 +48,12 @@ void ColorBandStrip::paintEvent(QPaintEvent *)
     p.scale(scale, scale);
     p.translate(-kDesignWidth / 2.0, -kDesignHeight / 2.0);
 
-    const double leadExtra = std::max(0.0, (width() / scale - kDesignWidth) / 2);
     const QRect body(30, kDesignHeight / 2 - 22, kDesignWidth - 60, 44);
     p.setPen(QPen(Qt::darkGray, 3));
-    p.drawLine(QPointF(-leadExtra, kDesignHeight / 2.0), QPointF(body.left(), kDesignHeight / 2.0));
+    // Leads end with the design width, so the whole part keeps one size.
+    p.drawLine(QPointF(0, kDesignHeight / 2.0), QPointF(body.left(), kDesignHeight / 2.0));
     p.drawLine(QPointF(body.right(), kDesignHeight / 2.0),
-               QPointF(kDesignWidth + leadExtra, kDesignHeight / 2.0));
+               QPointF(kDesignWidth, kDesignHeight / 2.0));
 
     p.setPen(QPen(Qt::black, 1));
     p.setBrush(qcolor(Color::None));
