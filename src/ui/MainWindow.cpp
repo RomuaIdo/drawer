@@ -2,6 +2,8 @@
 
 #include <QAction>
 #include <QComboBox>
+#include <QDockWidget>
+#include <QLineEdit>
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
@@ -13,15 +15,20 @@
 #include "CabinetView.h"
 #include "DrawerDialog.h"
 #include "GroupDialog.h"
+#include "ItemPanel.h"
 #include "core/Layout.h"
 #include "data/DatabaseError.h"
 
-MainWindow::MainWindow(ICabinetRepository &cabinets, IDrawerRepository &drawers, QWidget *parent)
+MainWindow::MainWindow(ICabinetRepository &cabinets, IDrawerRepository &drawers,
+                       IItemRepository &items, QWidget *parent)
     : QMainWindow(parent)
     , m_cabinets(cabinets)
     , m_drawers(drawers)
+    , m_items(items)
     , m_cabinetCombo(new QComboBox)
     , m_view(new CabinetView)
+    , m_panel(new ItemPanel(items))
+    , m_search(new QLineEdit)
 {
     setWindowTitle(tr("Drawer"));
     resize(1024, 700);
@@ -31,13 +38,17 @@ MainWindow::MainWindow(ICabinetRepository &cabinets, IDrawerRepository &drawers,
     scroll->setWidgetResizable(true);
     setCentralWidget(scroll);
 
+    auto *dock = new QDockWidget(tr("Items"), this);
+    dock->setWidget(m_panel);
+    addDockWidget(Qt::RightDockWidgetArea, dock);
+    dock->setMinimumWidth(420);
+
     createActions();
 
     connect(m_cabinetCombo, &QComboBox::currentIndexChanged, this, &MainWindow::reloadView);
-    connect(m_view, &CabinetView::drawerSelected, this, [this](const Drawer &d) {
-        m_view->setSelectedDrawer(d.id);
-        statusBar()->showMessage(tr("Drawer %1 (%2)").arg(d.label, drawerSizeToString(d.size)));
-    });
+    connect(m_view, &CabinetView::drawerSelected, this, &MainWindow::selectDrawer);
+    connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
+    connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::applySearch);
     connect(m_view, &CabinetView::drawerActivated, this, &MainWindow::editDrawer);
     connect(m_view, &CabinetView::groupContextRequested, this, &MainWindow::showGroupMenu);
 
@@ -56,6 +67,11 @@ void MainWindow::createActions()
     bar->addAction(tr("Delete"), this, &MainWindow::deleteCabinet);
     bar->addSeparator();
     bar->addAction(tr("Add drawer group"), this, &MainWindow::addGroup);
+    bar->addSeparator();
+    m_search->setPlaceholderText(tr("Search items..."));
+    m_search->setClearButtonEnabled(true);
+    m_search->setMaximumWidth(260);
+    bar->addWidget(m_search);
 }
 
 template <typename Fn> void MainWindow::guarded(Fn &&action)
@@ -96,6 +112,39 @@ void MainWindow::reloadView()
         });
     }
     m_view->setLayouts(layouts);
+
+    m_drawerChoices.clear();
+    for (const auto &l : layouts) {
+        for (const Drawer &d : l.drawers)
+            m_drawerChoices.append({d.id, QString("%1 / %2").arg(l.group.name, d.label)});
+    }
+    m_selectedDrawerId = 0;
+    m_panel->clear();
+    applySearch();
+}
+
+void MainWindow::selectDrawer(const Drawer &drawer)
+{
+    m_selectedDrawerId = drawer.id;
+    m_view->setSelectedDrawer(drawer.id);
+    m_panel->setDrawer(drawer, m_drawerChoices);
+    statusBar()->showMessage(
+        tr("Drawer %1 (%2)").arg(drawer.label, drawerSizeToString(drawer.size)));
+}
+
+// Highlights every drawer holding an item that matches the search text.
+void MainWindow::applySearch()
+{
+    QSet<int> drawerIds;
+    const QString text = m_search->text().trimmed();
+    if (!text.isEmpty()) {
+        guarded([&] {
+            for (const Item &item : m_items.search(text))
+                drawerIds.insert(item.drawerId);
+        });
+        statusBar()->showMessage(tr("%n drawer(s) match", "", drawerIds.size()));
+    }
+    m_view->setHighlightedDrawers(drawerIds);
 }
 
 void MainWindow::addCabinet()
