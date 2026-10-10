@@ -8,3 +8,4 @@ endfunction()
 
 add_drawer_test(tst_smoke)
 add_drawer_test(tst_repositories)
+add_drawer_test(tst_layout)
