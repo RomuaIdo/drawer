@@ -2,6 +2,7 @@
 
 #include <QWidget>
 
+class CapacitorStrip;
 class QLabel;
 class QLineEdit;
 
@@ -17,6 +18,7 @@ private:
     void decodeMarking();
     void encodeValue();
 
+    CapacitorStrip *m_strip;
     QLineEdit *m_markingInput;
     QLabel *m_decoded;
     QLineEdit *m_valueInput;
