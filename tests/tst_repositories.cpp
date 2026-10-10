@@ -74,6 +74,69 @@ private slots:
         QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().posY, 3.25);
     }
 
+    void resizeGrowKeepsExistingDrawers()
+    {
+        const Drawer first = singleDrawer();
+        DrawerGroup g = m_drawers->groupsOf(m_cabinets->all().first().id).first();
+        Drawer edited = first;
+        edited.label = "Keep me";
+        m_drawers->updateDrawer(edited);
+
+        g.cols = 3;
+        g.defaultSize = DrawerSize::Large;
+        m_drawers->resizeGroup(g, {});
+        const QList<Drawer> drawers = m_drawers->drawersOf(g.id);
+        QCOMPARE(drawers.size(), 3);
+        QCOMPARE(drawers[0].id, first.id);
+        QCOMPARE(drawers[0].label, QString("Keep me"));
+        QCOMPARE(drawers[2].label, QString("R1C3"));
+        QCOMPARE(drawers[2].size, DrawerSize::Large);
+        QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().cols, 3);
+    }
+
+    void resizeShrinkDropsDrawersAndItems()
+    {
+        const int cab = m_cabinets->add({0, "A", ""}).id;
+        DrawerGroup g;
+        g.cabinetId = cab;
+        g.name = "Block";
+        g.rows = 2;
+        g.cols = 2;
+        g = m_drawers->addGroup(g);
+        const QList<Drawer> before = m_drawers->drawersOf(g.id);
+        m_items->add({0, before[0].id, "Stays", "", "", "", 1, ""});
+        m_items->add({0, before[3].id, "Goes", "", "", "", 1, ""}); // R2C2
+
+        QCOMPARE(m_drawers->itemsLostByResize(g.id, 1, 2), 1);
+        QCOMPARE(m_drawers->itemsLostByResize(g.id, 2, 2), 0);
+
+        g.rows = 1;
+        m_drawers->resizeGroup(g, {});
+        QCOMPARE(m_drawers->drawersOf(g.id).size(), 2);
+        QCOMPARE(m_items->search("Stays").size(), 1);
+        QVERIFY(m_items->search("Goes").isEmpty());
+    }
+
+    void resizeMovesDisplacedGroupsTogether()
+    {
+        const int cab = m_cabinets->add({0, "A", ""}).id;
+        DrawerGroup a;
+        a.cabinetId = cab;
+        a.name = "A";
+        DrawerGroup b = a;
+        b.name = "B";
+        b.posX = 1;
+        a = m_drawers->addGroup(a);
+        b = m_drawers->addGroup(b);
+
+        a.cols = 2;
+        b.posX = 2;
+        m_drawers->resizeGroup(a, {b});
+        const auto groups = m_drawers->groupsOf(cab);
+        QCOMPARE(groups[0].cols, 2);
+        QCOMPARE(groups[1].posX, 2.0);
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();

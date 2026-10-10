@@ -1,7 +1,9 @@
 #include "Layout.h"
 
 #include <algorithm>
+#include <QSet>
 #include <cmath>
+#include <optional>
 
 namespace Layout {
 
@@ -99,6 +101,60 @@ Position dragTarget(Position start, double dx, double dy, bool snap)
         y = std::round(y);
     }
     return {std::max(0.0, x), std::max(0.0, y)};
+}
+
+QList<DrawerGroup> displacedByResize(const QList<DrawerGroup> &groups, const DrawerGroup &resized,
+                                     int oldRows, int oldCols)
+{
+    enum class Push { Right, Down };
+
+    QList<DrawerGroup> current = groups;
+    QSet<int> moved;
+
+    struct Mover {
+        DrawerGroup group;
+        std::optional<Push> direction; // Unset for the resized group itself.
+    };
+    QList<Mover> queue{{resized, std::nullopt}};
+    const double oldRight = resized.posX + oldCols;
+    const double oldBottom = resized.posY + oldRows;
+
+    while (!queue.isEmpty()) {
+        const Mover mover = queue.takeFirst();
+        for (DrawerGroup &other : current) {
+            if (other.id == resized.id || other.id == mover.group.id
+                || !overlaps(mover.group, other))
+                continue;
+
+            Push push;
+            if (mover.direction) {
+                push = *mover.direction;
+            } else {
+                const double right = mover.group.posX + mover.group.cols - other.posX;
+                const double down = mover.group.posY + mover.group.rows - other.posY;
+                const bool beyondRight = other.posX >= oldRight - kEpsilon;
+                const bool beyondBottom = other.posY >= oldBottom - kEpsilon;
+                if (beyondRight != beyondBottom)
+                    push = beyondRight ? Push::Right : Push::Down;
+                else
+                    push = right <= down ? Push::Right : Push::Down;
+            }
+
+            if (push == Push::Right)
+                other.posX = mover.group.posX + mover.group.cols;
+            else
+                other.posY = mover.group.posY + mover.group.rows;
+            moved.insert(other.id);
+            queue.append({other, push});
+        }
+    }
+
+    QList<DrawerGroup> result;
+    for (const DrawerGroup &g : current) {
+        if (moved.contains(g.id))
+            result.append(g);
+    }
+    return result;
 }
 
 } // namespace Layout

@@ -333,12 +333,33 @@ void MainWindow::editGroup(const DrawerGroup &group)
 {
     guarded([&] {
         const QList<DrawerGroup> existing = m_drawers.groupsOf(group.cabinetId);
+        const auto sameSize = [&](const DrawerGroup &g) {
+            return g.rows == group.rows && g.cols == group.cols;
+        };
+        // A resize pushes its neighbors away, so only plain moves can collide.
         GroupDialog dialog(
-            group, [&](const DrawerGroup &g) { return !Layout::collides(g, existing); }, {}, this);
-        if (dialog.exec() == QDialog::Accepted) {
-            m_drawers.updateGroup(dialog.group());
-            reloadView();
+            group,
+            [&](const DrawerGroup &g) { return !sameSize(g) || !Layout::collides(g, existing); },
+            {}, this);
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+
+        const DrawerGroup edited = dialog.group();
+        if (sameSize(edited)) {
+            m_drawers.updateGroup(edited);
+        } else {
+            const int lost = m_drawers.itemsLostByResize(edited.id, edited.rows, edited.cols);
+            if (lost > 0
+                && QMessageBox::warning(
+                       this, tr("Resize drawer group"),
+                       tr("Shrinking removes drawers that hold %n item(s). Continue?", "", lost),
+                       QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
+                    != QMessageBox::Yes)
+                return;
+            m_drawers.resizeGroup(
+                edited, Layout::displacedByResize(existing, edited, group.rows, group.cols));
         }
+        reloadView();
     });
 }
 
