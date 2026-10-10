@@ -20,7 +20,7 @@ public:
 
     // `destinations` are the drawers an item may be moved to.
     void setDrawer(const Drawer &drawer, const QString &groupName,
-                   const QList<ItemDialog::DrawerChoice> &destinations);
+                   const DrawerLayouts &destinations);
     void clear();
     void selectAll();
     void removeSelected() { removeItem(); } // Asks first.
@@ -59,5 +59,5 @@ private:
     QPushButton *m_increase;
     int m_drawerId = 0;
     bool m_canPaste = false;
-    QList<ItemDialog::DrawerChoice> m_destinations;
+    DrawerLayouts m_destinations;
 };

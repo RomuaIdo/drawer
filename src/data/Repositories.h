@@ -105,8 +105,9 @@ class IListRepository
 public:
     virtual ~IListRepository() = default;
     virtual QList<ListLine> lines(ListKind kind) const = 0;
-    // Puts item entries on the list with quantity 1; an entry already there gets one more.
-    virtual void add(ListKind kind, const QList<int> &itemIds) = 0;
+    // Puts item entries on the list with `quantity` each; an entry already there gets that
+    // much more.
+    virtual void add(ListKind kind, const QList<int> &itemIds, int quantity = 1) = 0;
     virtual void setQuantity(int lineId, int quantity) = 0; // At least 1.
     virtual void remove(const QList<int> &lineIds) = 0;
     virtual void clear(ListKind kind) = 0;

@@ -217,10 +217,10 @@ private:
             items.add({0, drawer[1].id, "Washer", "Hardware", "M3", "", 1, ""});
 
             panel = std::make_unique<AllItemsPanel>(items);
-            QList<ItemDialog::DrawerChoice> choices;
-            for (const Drawer &d : drawer)
-                choices.append({d.id, "G / " + d.label});
-            panel->setDestinations(choices);
+            CabinetView::GroupLayout layout;
+            layout.group = drawers.groupsOf(cabinetId).first();
+            layout.drawers = drawer;
+            panel->setDestinations({layout});
             panel->setCabinet(cabinetId);
             panel->show();
             table = panel->findChild<QTableView *>();
@@ -290,6 +290,37 @@ private slots:
         QCOMPARE(f.table->model()->rowCount(), 4);
         QCOMPARE(changed.count(), 1);
         QCOMPARE(changed[0][0].toString(), QString("Add item"));
+    }
+
+    void theAddDialogPicksTheDrawerByClickingIt()
+    {
+        Fixture f;
+        f.panel->setDefaultDrawer(f.drawer[0].id);
+        onNextDialog([&](QWidget *dialog) {
+            dialog->findChildren<QLineEdit *>()[0]->setText("Bolt");
+            auto *picker = dialog->findChild<CabinetView *>();
+            QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
+                              picker->drawerRect(f.drawer[2].id).center()); // Not the default.
+            buttonText(dialog, "OK")->click();
+        });
+        buttonText(f.panel.get(), "Add")->click();
+        QCOMPARE(f.quantityIn(2, "Bolt"), 0);
+        QCOMPARE(f.quantityIn(0, "Bolt"), -1);
+    }
+
+    void theEditDialogCanMoveTheItemByClickingAnotherDrawer()
+    {
+        Fixture f;
+        f.table->selectRow(2); // Washer, in the middle drawer.
+        onNextDialog([&](QWidget *dialog) {
+            auto *picker = dialog->findChild<CabinetView *>();
+            QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
+                              picker->drawerRect(f.drawer[2].id).center());
+            buttonText(dialog, "OK")->click();
+        });
+        buttonText(f.panel.get(), "Edit")->click();
+        QCOMPARE(f.quantityIn(1, "Washer"), -1);
+        QCOMPARE(f.quantityIn(2, "Washer"), 1);
     }
 
     void editChangesOneEntry()

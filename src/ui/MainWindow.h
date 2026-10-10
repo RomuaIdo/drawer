@@ -112,7 +112,7 @@ private:
     QScrollArea *m_scroll;
     QLineEdit *m_search;
     QComboBox *m_category;
-    QList<ItemDialog::DrawerChoice> m_drawerChoices;
+    DrawerLayouts m_layouts; // The drawers of the current cabinet, block by block.
     QHash<int, Drawer> m_drawersById; // Drawers of the current cabinet.
     QHash<int, QString> m_groupNames; // Group id -> name, for the current cabinet.
     int m_selectedDrawerId = 0;

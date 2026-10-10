@@ -44,8 +44,8 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     , m_view(new CabinetView)
     , m_panel(new ItemPanel(repos.items))
     , m_allItems(new AllItemsPanel(repos.items))
-    , m_pickList(new ListPanel(ListKind::Pick, repos.lists))
-    , m_restockList(new ListPanel(ListKind::Restock, repos.lists))
+    , m_pickList(new ListPanel(ListKind::Pick, repos.lists, repos.items))
+    , m_restockList(new ListPanel(ListKind::Restock, repos.lists, repos.items))
     , m_itemTabs(new QTabWidget)
     , m_search(new QLineEdit)
     , m_category(new QComboBox)
@@ -97,11 +97,13 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
             recordChange(what);
             refreshLists();
         });
-        // Applying changes the stock: everything that shows quantities follows.
-        connect(list, &ListPanel::applied, this, [this](const QString &what) {
+        // Applying changes the stock, and a new item changes the items: everything follows.
+        const auto stockChanged = [this](const QString &what) {
             recordChange(what);
             refreshItems();
-        });
+        };
+        connect(list, &ListPanel::applied, this, stockChanged);
+        connect(list, &ListPanel::itemsChanged, this, stockChanged);
     }
     connect(m_panel, &ItemPanel::addToListRequested, this, &MainWindow::addToList);
     connect(m_allItems, &AllItemsPanel::addToListRequested, this, &MainWindow::addToList);
@@ -220,22 +222,21 @@ void MainWindow::reloadView()
     }
     m_view->setLayouts(layouts);
 
-    m_drawerChoices.clear();
+    m_layouts = layouts;
     m_groupNames.clear();
     m_drawersById.clear();
     for (const auto &l : layouts) {
         m_groupNames.insert(l.group.id, l.group.name);
         for (const Drawer &d : l.drawers)
             m_drawersById.insert(d.id, d);
-        for (const Drawer &d : l.drawers)
-            m_drawerChoices.append({d.id, QString("%1 / %2").arg(l.group.name, d.label)});
     }
     m_selectedDrawerId = 0;
     m_panel->clear();
     applySearch();
     updateLowStock();
     refreshCategories();
-    m_allItems->setDestinations(m_drawerChoices);
+    m_allItems->setDestinations(m_layouts);
+    m_restockList->setDestinations(m_layouts);
     refreshLists();
     m_allItems->setCabinet(currentCabinetId());
     m_view->setEmphasizedDrawers({});
@@ -336,9 +337,10 @@ void MainWindow::selectDrawer(const Drawer &drawer)
 {
     m_selectedDrawerId = drawer.id;
     m_allItems->setDefaultDrawer(drawer.id);
+    m_restockList->setDefaultDrawer(drawer.id);
     m_view->setSelectedDrawer(drawer.id);
     const QString groupName = m_groupNames.value(drawer.groupId);
-    m_panel->setDrawer(drawer, groupName, m_drawerChoices);
+    m_panel->setDrawer(drawer, groupName, m_layouts);
     statusBar()->showMessage(tr("Group %1, drawer %2 (%3)")
                                  .arg(groupName, drawer.label, drawerSizeToString(drawer.size)));
 }
@@ -587,11 +589,8 @@ void MainWindow::showGroupMenu(const DrawerGroup &group, int drawerId, const QPo
 {
     QMenu menu;
     if (drawerId) {
-        QString label;
-        for (const auto &choice : m_drawerChoices) {
-            if (choice.id == drawerId)
-                label = choice.text;
-        }
+        const Drawer drawer = m_drawersById.value(drawerId);
+        const QString label = QString("%1 / %2").arg(m_groupNames.value(drawer.groupId), drawer.label);
         menu.addAction(tr("Paste %n item(s) into %1", "", m_itemClipboard.size()).arg(label),
                        [&] { pasteItems(drawerId); })
             ->setEnabled(!m_itemClipboard.isEmpty());

@@ -10,6 +10,7 @@
 #include <QTableView>
 #include <QVBoxLayout>
 
+#include "ItemDialog.h"
 #include "ListModel.h"
 #include "data/DatabaseError.h"
 
@@ -41,13 +42,15 @@ public:
 
 } // namespace
 
-ListPanel::ListPanel(ListKind kind, IListRepository &lists, QWidget *parent)
+ListPanel::ListPanel(ListKind kind, IListRepository &lists, IItemRepository &items, QWidget *parent)
     : QWidget(parent)
     , m_kind(kind)
     , m_lists(lists)
+    , m_items(items)
     , m_model(new ListModel(kind, this))
     , m_table(new QTableView)
     , m_summary(new QLabel)
+    , m_add(new QPushButton(tr("Add")))
     , m_remove(new QPushButton(tr("Remove line")))
     , m_clear(new QPushButton(tr("Clear")))
     , m_apply(new QPushButton(kind == ListKind::Pick ? tr("Take all from stock")
@@ -68,7 +71,13 @@ ListPanel::ListPanel(ListKind kind, IListRepository &lists, QWidget *parent)
                             : tr("Add every quantity to the stock and empty the list"));
     m_summary->setWordWrap(true);
 
+    // Only the restock list can bring in new components; the pick list takes what exists.
+    m_add->setVisible(kind == ListKind::Restock);
+    m_add->setEnabled(false);
+    m_add->setToolTip(tr("Add a new component to the restock list, choosing its drawer"));
+
     auto *buttons = new QHBoxLayout;
+    buttons->addWidget(m_add);
     buttons->addWidget(m_remove);
     buttons->addWidget(m_clear);
     buttons->addStretch();
@@ -90,6 +99,7 @@ ListPanel::ListPanel(ListKind kind, IListRepository &lists, QWidget *parent)
         emit listChanged(m_kind == ListKind::Pick ? tr("Change pick list quantity")
                                                   : tr("Change restock list quantity"));
     });
+    connect(m_add, &QPushButton::clicked, this, &ListPanel::addNewItem);
     connect(m_remove, &QPushButton::clicked, this, &ListPanel::removeSelected);
     connect(m_clear, &QPushButton::clicked, this, &ListPanel::clearAll);
     connect(m_apply, &QPushButton::clicked, this, &ListPanel::applyToStock);
@@ -146,6 +156,42 @@ QList<int> ListPanel::selectedDrawerIds() const
 void ListPanel::clearSelection()
 {
     m_table->clearSelection();
+}
+
+void ListPanel::setDestinations(const DrawerLayouts &drawers)
+{
+    m_destinations = drawers;
+    bool anyDrawer = false;
+    for (const CabinetView::GroupLayout &l : m_destinations)
+        anyDrawer = anyDrawer || !l.drawers.isEmpty();
+    m_add->setEnabled(anyDrawer);
+}
+
+// The new component starts with no stock; the restock line carries the quantity to add.
+void ListPanel::addNewItem()
+{
+    if (m_kind != ListKind::Restock || !m_add->isEnabled())
+        return;
+    Item blank;
+    blank.drawerId = m_defaultDrawerId;
+    blank.quantity = 1;
+    ItemDialog dialog(blank, m_destinations, this);
+    dialog.setRestockMode();
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    Item item = dialog.item();
+    const int toAdd = std::max(1, item.quantity);
+    item.quantity = 0;
+    try {
+        const Item added = m_items.add(item);
+        m_lists.add(ListKind::Restock, {added.id}, toAdd);
+    } catch (const DatabaseError &e) {
+        QMessageBox::critical(this, tr("Database error"), e.what());
+        return;
+    }
+    reload();
+    emit itemsChanged(tr("Add item to restock list"));
 }
 
 void ListPanel::removeSelected()

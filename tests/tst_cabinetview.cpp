@@ -212,6 +212,30 @@ private slots:
         QCOMPARE(spy.count(), 0);
     }
 
+    void pickerModeOnlyChoosesDrawers()
+    {
+        m_view->setPickerMode(true);
+        QSignalSpy selected(m_view.get(), &CabinetView::drawerSelected);
+        QSignalSpy moved(m_view.get(), &CabinetView::groupsMoved);
+
+        click(cellCenter(4, 0));
+        QCOMPARE(selected.count(), 1);
+        QCOMPARE(selected[0][0].value<Drawer>().id, 200);
+
+        // No block selection, no dragging, no band, no drops.
+        QVERIFY(m_view->selectedGroups().isEmpty());
+        drag(cellCenter(0, 0), cellCenter(0, 0) + QPoint(72 * 2, 52));
+        QCOMPARE(moved.count(), 0);
+        mouseEvent(m_view.get(), QEvent::MouseButtonPress, QPoint(700, 150), Qt::LeftButton, Qt::LeftButton);
+        mouseEvent(m_view.get(), QEvent::MouseMove, QPoint(20, 20), Qt::NoButton, Qt::LeftButton);
+        mouseEvent(m_view.get(), QEvent::MouseButtonRelease, QPoint(20, 20), Qt::LeftButton, Qt::NoButton);
+        QVERIFY(m_view->selectedGroups().isEmpty());
+        QVERIFY(!m_view->acceptDrops());
+
+        click(QPoint(700, 500)); // Empty space chooses nothing.
+        QCOMPARE(selected.count(), 2); // Only the drag's press on a drawer counted.
+    }
+
     void groupColorOverridesTheSizeColor()
     {
         auto layouts = QList<CabinetView::GroupLayout>{makeLayout(1, 0, 0, 1, 1)};
