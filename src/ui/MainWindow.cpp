@@ -137,7 +137,9 @@ void MainWindow::reloadView()
     m_view->setLayouts(layouts);
 
     m_drawerChoices.clear();
+    m_groupNames.clear();
     for (const auto &l : layouts) {
+        m_groupNames.insert(l.group.id, l.group.name);
         for (const Drawer &d : l.drawers)
             m_drawerChoices.append({d.id, QString("%1 / %2").arg(l.group.name, d.label)});
     }
@@ -240,9 +242,10 @@ void MainWindow::selectDrawer(const Drawer &drawer)
 {
     m_selectedDrawerId = drawer.id;
     m_view->setSelectedDrawer(drawer.id);
-    m_panel->setDrawer(drawer, m_drawerChoices);
-    statusBar()->showMessage(
-        tr("Drawer %1 (%2)").arg(drawer.label, drawerSizeToString(drawer.size)));
+    const QString groupName = m_groupNames.value(drawer.groupId);
+    m_panel->setDrawer(drawer, groupName, m_drawerChoices);
+    statusBar()->showMessage(tr("Group %1, drawer %2 (%3)")
+                                 .arg(groupName, drawer.label, drawerSizeToString(drawer.size)));
 }
 
 // Highlights every drawer holding an item that matches the search text.
