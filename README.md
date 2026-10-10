@@ -32,7 +32,7 @@ ctest --test-dir build --output-on-failure
 - The items panel has two tabs. "Selected drawer" lists the items of the chosen drawer. "All items" lists every item of the cabinet with its location; picking a row selects its drawer and shows it darker (and scrolls to it). "Group duplicates" (off by default) puts an item stored in several drawers on one row, with its drawers as `R1C1 (10), R2C3 (4)` and the total quantity, and darkens all of those drawers.
 - The search box highlights every drawer holding a matching item.
 - File > Export mapping writes the full mapping, including empty drawers, to a CSV file.
-- File > Export organization saves cabinets, blocks, drawers and items to a JSON file; File > Import organization adds the cabinets from such a file to the current data (existing cabinets are kept, and an invalid file changes nothing).
+- File > Export database saves cabinets, blocks, drawers and items to a JSON file; File > Import database adds the cabinets from such a file to the current data (existing cabinets are kept, and an invalid file changes nothing).
 - Tools > Electronics tools opens the calculators.
 
 Data is stored in `drawer.db` under the application data directory (`~/.local/share/Drawer` on Linux).
