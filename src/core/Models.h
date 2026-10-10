@@ -23,6 +23,7 @@ struct DrawerGroup {
     double posX = 0; // Block position in the cabinet layout, in grid cells.
     double posY = 0; // Fractional when the block was moved freely.
     DrawerSize defaultSize = DrawerSize::Medium;
+    QString color; // "#rrggbb"; empty colors the drawers by size.
 };
 
 Q_DECLARE_METATYPE(DrawerGroup)

@@ -22,7 +22,8 @@ ctest --test-dir build --output-on-failure
 - Create a cabinet, then add drawer groups: a 4x4 or 3x3 block, or a 1x1 group for a single drawer.
 - Double click a drawer to edit its label and size (small, medium, large); click it to manage its items.
 - Right click a block and choose Edit to rename it or change its rows and columns; growing a block pushes its neighbors out of the way, and shrinking asks for confirmation if drawers with items would be removed.
-- Select several blocks with Ctrl+click or by dragging a rectangle on empty space (Ctrl+A selects all, Esc clears), then drag any of them to move the whole selection together.
+- Select several blocks with Ctrl+click or by dragging a rectangle on empty space (left or right button) (Ctrl+A selects all, Esc clears), then drag any of them to move the whole selection together.
+- Edit a block to give it a custom color (the name tag follows it, darker); "By size" goes back to green, yellow and red for small, medium and large drawers.
 - Drag a block to move it; it snaps to the grid and turns red where it would overlap. Right click a block and enable "Move freely" to drop it anywhere. Esc cancels a drag.
 - The search box highlights every drawer holding a matching item.
 - File > Export mapping writes the full mapping, including empty drawers, to a CSV file.

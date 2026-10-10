@@ -155,6 +155,17 @@ private slots:
         QVERIFY2(edge.blue() > 200 && edge.red() < 80, qPrintable(edge.name()));
     }
 
+    void groupColorOverridesTheSizeColor()
+    {
+        auto layouts = QList<CabinetView::GroupLayout>{makeLayout(1, 0, 0, 1, 1)};
+        layouts[0].group.color = "#3366cc";
+        m_view->setLayouts(layouts);
+        const QImage image = m_view->grab().toImage();
+        // Middle of the drawer, away from its text: the custom color, not the size color.
+        const QColor fill = image.pixelColor(12 + 10, 12 + 40);
+        QCOMPARE(fill, QColor("#3366cc"));
+    }
+
     void draggingASelectionMovesEveryBlock()
     {
         click(cellCenter(0, 0));

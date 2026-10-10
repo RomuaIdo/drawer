@@ -4,7 +4,10 @@
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QColorDialog>
 #include <QDoubleSpinBox>
+#include <QHBoxLayout>
 #include <QSpinBox>
 
 #include "SizeComboBox.h"
@@ -43,6 +46,8 @@ GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree,
     , m_posY(makePositionSpin(group.posY))
     , m_suggest(std::move(suggest))
     , m_size(new SizeComboBox(group.defaultSize))
+    , m_colorButton(new QPushButton)
+    , m_color(group.color)
 {
     const bool editing = group.id != 0;
     setWindowTitle(editing ? tr("Edit drawer group") : tr("New drawer group"));
@@ -61,6 +66,19 @@ GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree,
     form->addRow(tr("Position X"), m_posX);
     form->addRow(tr("Position Y"), m_posY);
     form->addRow(tr("Default size"), m_size);
+
+    auto *reset = new QPushButton(tr("By size"));
+    reset->setToolTip(tr("Color the drawers by their size instead"));
+    auto *colorRow = new QHBoxLayout;
+    colorRow->addWidget(m_colorButton, 1);
+    colorRow->addWidget(reset);
+    form->addRow(tr("Color"), colorRow);
+    showColor();
+    connect(m_colorButton, &QPushButton::clicked, this, &GroupDialog::chooseColor);
+    connect(reset, &QPushButton::clicked, this, [this] {
+        m_color.clear();
+        showColor();
+    });
     form->addRow(buttons);
 
     // New groups follow the suggested position until the user picks one by hand.
@@ -83,6 +101,28 @@ GroupDialog::GroupDialog(const DrawerGroup &group, PlacementCheck isFree,
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
+void GroupDialog::chooseColor()
+{
+    const QColor chosen = QColorDialog::getColor(QColor(m_color), this, tr("Group color"));
+    if (!chosen.isValid())
+        return;
+    m_color = chosen.name();
+    showColor();
+}
+
+void GroupDialog::showColor()
+{
+    const QColor color(m_color);
+    if (color.isValid()) {
+        m_colorButton->setText(m_color);
+        m_colorButton->setStyleSheet(QString("background-color: %1; color: %2;")
+                                         .arg(m_color, color.lightness() > 140 ? "black" : "white"));
+    } else {
+        m_colorButton->setText(tr("Colored by drawer size"));
+        m_colorButton->setStyleSheet(QString());
+    }
+}
+
 void GroupDialog::suggestPosition()
 {
     const Layout::Position pos = m_suggest(m_rows->value(), m_cols->value());
@@ -101,6 +141,7 @@ DrawerGroup GroupDialog::group() const
     result.posX = m_posX->value();
     result.posY = m_posY->value();
     result.defaultSize = m_size->size();
+    result.color = m_color;
     return result;
 }
 
