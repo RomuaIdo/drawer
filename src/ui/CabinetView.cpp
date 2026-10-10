@@ -45,7 +45,14 @@ CabinetView::CabinetView(QWidget *parent)
 void CabinetView::setLayouts(const QList<GroupLayout> &layouts)
 {
     cancelDrag();
+    m_banding = false;
     m_layouts = layouts;
+    QSet<int> surviving;
+    for (const GroupLayout &l : m_layouts) {
+        if (m_selectedGroups.contains(l.group.id))
+            surviving.insert(l.group.id);
+    }
+    m_selectedGroups = surviving;
     setMinimumSize(sizeHint());
     updateGeometry();
     update();
@@ -150,8 +157,8 @@ void CabinetView::paintEvent(QPaintEvent *)
     p.fillRect(rect(), palette().window());
 
     for (const GroupLayout &l : m_layouts) {
-        const bool beingDragged = m_dragging && l.group.id == m_dragGroup.id;
-        const DrawerGroup &group = beingDragged ? m_dragGroup : l.group;
+        const bool beingDragged = m_dragging && m_dragOrigins.contains(l.group.id);
+        const DrawerGroup group = displayed(l.group);
         p.setOpacity(beingDragged ? 0.7 : 1.0);
 
         for (const Drawer &d : l.drawers) {
@@ -175,41 +182,93 @@ void CabinetView::paintEvent(QPaintEvent *)
             p.drawText(cell.adjusted(4, 2, -4, -2), Qt::AlignRight | Qt::AlignBottom,
                        sizeLetter(d.size));
         }
-        // Block outline makes grouped drawers easy to tell apart.
         drawGroupTag(p, group, l.drawers);
 
-        // Dragged blocks are outlined red when the drop would overlap another block.
-        const QColor outline = beingDragged && !m_dragValid ? QColor(0xd3, 0x20, 0x20) : Qt::black;
-        p.setPen(QPen(outline, beingDragged ? 3 : 2));
+        // Block outline makes grouped drawers easy to tell apart. Selected blocks use the
+        // highlight color; a drag that would overlap another block turns red.
+        QColor outline = Qt::black;
+        if (m_selectedGroups.contains(l.group.id))
+            outline = palette().color(QPalette::Highlight);
+        if (beingDragged && !m_dragValid)
+            outline = QColor(0xd3, 0x20, 0x20);
+        const bool emphasized = beingDragged || m_selectedGroups.contains(l.group.id);
+        p.setPen(QPen(outline, emphasized ? 3 : 2));
         p.setBrush(Qt::NoBrush);
         p.drawRect(groupRect(group));
     }
     p.setOpacity(1.0);
+
+    if (m_banding) {
+        QColor fill = palette().color(QPalette::Highlight);
+        fill.setAlpha(50);
+        p.setPen(palette().color(QPalette::Highlight));
+        p.setBrush(fill);
+        p.drawRect(m_bandRect);
+    }
 }
 
 void CabinetView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() != Qt::LeftButton)
         return;
+    setFocus();
     const Hit hit = hitTest(event->pos());
+    const bool additive = event->modifiers() & Qt::ControlModifier;
+    m_pressPos = event->pos();
+    m_pressedGroupId = 0;
+    m_collapseTo = 0;
+
+    // Empty space starts a rubber band.
+    if (!hit.layout) {
+        m_banding = true;
+        m_bandBase = additive ? m_selectedGroups : QSet<int>();
+        m_bandRect = QRect(event->pos(), event->pos());
+        setSelectedGroups(m_bandBase);
+        return;
+    }
+
+    const int id = hit.layout->group.id;
+    if (additive) {
+        QSet<int> selection = m_selectedGroups;
+        if (!selection.remove(id))
+            selection.insert(id);
+        setSelectedGroups(selection);
+        if (selection.contains(id))
+            m_pressedGroupId = id;
+        return;
+    }
+
     if (hit.drawer)
         emit drawerSelected(*hit.drawer);
-    if (hit.layout) {
-        m_dragGroup = hit.layout->group;
-        m_dragOrigin = {m_dragGroup.posX, m_dragGroup.posY};
-        m_pressPos = event->pos();
-    }
+    if (!m_selectedGroups.contains(id))
+        setSelectedGroups({id});
+    else if (m_selectedGroups.size() > 1)
+        m_collapseTo = id; // Becomes the only selection unless this turns into a drag.
+    m_pressedGroupId = id;
 }
 
 void CabinetView::mouseMoveEvent(QMouseEvent *event)
 {
-    if (!(event->buttons() & Qt::LeftButton) || m_dragGroup.id == 0)
+    if (!(event->buttons() & Qt::LeftButton))
         return;
-    if (!m_dragging
-        && (event->pos() - m_pressPos).manhattanLength() < QApplication::startDragDistance())
+    if (m_banding) {
+        updateBand(event->pos());
         return;
-    m_dragging = true;
-    setCursor(Qt::ClosedHandCursor);
+    }
+    if (m_pressedGroupId == 0)
+        return;
+    if (!m_dragging) {
+        if ((event->pos() - m_pressPos).manhattanLength() < QApplication::startDragDistance())
+            return;
+        m_dragging = true;
+        m_collapseTo = 0;
+        m_dragOrigins.clear();
+        for (const GroupLayout &l : m_layouts) {
+            if (m_selectedGroups.contains(l.group.id))
+                m_dragOrigins.insert(l.group.id, {l.group.posX, l.group.posY});
+        }
+        setCursor(Qt::ClosedHandCursor);
+    }
     updateDrag(event->pos());
 }
 
@@ -217,47 +276,114 @@ void CabinetView::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() != Qt::LeftButton)
         return;
-    const bool commit = m_dragging && m_dragValid
-        && (m_dragGroup.posX != m_dragOrigin.x || m_dragGroup.posY != m_dragOrigin.y);
-    const DrawerGroup moved = m_dragGroup;
+
+    if (m_banding) {
+        m_banding = false;
+        update();
+        return;
+    }
+
+    const bool commit = m_dragging && m_dragValid && (m_dragShift.x != 0 || m_dragShift.y != 0);
+    QList<DrawerGroup> moved;
+    if (commit) {
+        for (const GroupLayout &l : m_layouts) {
+            if (m_dragOrigins.contains(l.group.id))
+                moved.append(displayed(l.group));
+        }
+    }
+    const int collapse = m_collapseTo;
     cancelDrag();
+    m_pressedGroupId = 0;
+    m_collapseTo = 0;
+
     if (commit)
-        emit groupMoved(moved, moved.posX, moved.posY);
+        emit groupsMoved(moved);
+    else if (collapse)
+        setSelectedGroups({collapse});
 }
 
 void CabinetView::keyPressEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_Escape && m_dragging)
-        cancelDrag();
-    else
+    if (event->key() == Qt::Key_Escape) {
+        if (m_dragging || m_banding) {
+            cancelDrag();
+            m_banding = false;
+        } else {
+            setSelectedGroups({});
+        }
+    } else if (event->matches(QKeySequence::SelectAll)) {
+        QSet<int> all;
+        for (const GroupLayout &l : m_layouts)
+            all.insert(l.group.id);
+        setSelectedGroups(all);
+    } else {
         QWidget::keyPressEvent(event);
+    }
 }
 
 void CabinetView::updateDrag(const QPoint &pos)
 {
     const double dx = double(pos.x() - m_pressPos.x()) / kCellWidth;
     const double dy = double(pos.y() - m_pressPos.y()) / kCellHeight;
-    const Layout::Position target = Layout::dragTarget(m_dragOrigin, dx, dy, !m_freeMove);
-    m_dragGroup.posX = target.x;
-    m_dragGroup.posY = target.y;
-    m_dragValid = !Layout::collides(m_dragGroup, otherGroups(m_dragGroup.id));
+    const QList<Layout::Position> origins = m_dragOrigins.values();
+    m_dragShift = Layout::dragDelta(origins, m_dragOrigins.value(m_pressedGroupId), dx, dy,
+                                    !m_freeMove);
+
+    // Moved blocks keep their offsets, so only the ones left behind can be hit.
+    const QList<DrawerGroup> fixed = unselectedGroups();
+    m_dragValid = true;
+    for (const GroupLayout &l : m_layouts) {
+        if (m_dragOrigins.contains(l.group.id) && Layout::collides(displayed(l.group), fixed))
+            m_dragValid = false;
+    }
     update();
+}
+
+void CabinetView::updateBand(const QPoint &pos)
+{
+    m_bandRect = QRect(m_pressPos, pos).normalized();
+    QSet<int> selection = m_bandBase;
+    for (const GroupLayout &l : m_layouts) {
+        if (groupRect(l.group).intersects(m_bandRect))
+            selection.insert(l.group.id);
+    }
+    setSelectedGroups(selection);
 }
 
 void CabinetView::cancelDrag()
 {
     m_dragging = false;
     m_dragValid = false;
-    m_dragGroup = {};
+    m_dragOrigins.clear();
+    m_dragShift = {};
     unsetCursor();
     update();
 }
 
-QList<DrawerGroup> CabinetView::otherGroups(int excludedId) const
+void CabinetView::setSelectedGroups(const QSet<int> &ids)
+{
+    if (ids == m_selectedGroups)
+        return;
+    m_selectedGroups = ids;
+    update();
+}
+
+DrawerGroup CabinetView::displayed(const DrawerGroup &group) const
+{
+    DrawerGroup result = group;
+    const auto origin = m_dragOrigins.constFind(group.id);
+    if (m_dragging && origin != m_dragOrigins.constEnd()) {
+        result.posX = origin->x + m_dragShift.x;
+        result.posY = origin->y + m_dragShift.y;
+    }
+    return result;
+}
+
+QList<DrawerGroup> CabinetView::unselectedGroups() const
 {
     QList<DrawerGroup> groups;
     for (const GroupLayout &l : m_layouts) {
-        if (l.group.id != excludedId)
+        if (!m_selectedGroups.contains(l.group.id))
             groups.append(l.group);
     }
     return groups;
@@ -273,6 +399,8 @@ void CabinetView::mouseDoubleClickEvent(QMouseEvent *event)
 void CabinetView::contextMenuEvent(QContextMenuEvent *event)
 {
     const Hit hit = hitTest(event->pos());
+    if (hit.layout && !m_selectedGroups.contains(hit.layout->group.id))
+        setSelectedGroups({hit.layout->group.id});
     if (hit.layout)
         emit groupContextRequested(hit.layout->group, event->globalPos());
 }

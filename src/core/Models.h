@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QMetaType>
 #include <QString>
 
 #include "DrawerSize.h"
@@ -23,6 +24,8 @@ struct DrawerGroup {
     double posY = 0; // Fractional when the block was moved freely.
     DrawerSize defaultSize = DrawerSize::Medium;
 };
+
+Q_DECLARE_METATYPE(DrawerGroup)
 
 struct Drawer {
     int id = 0;

@@ -12,6 +12,7 @@ public:
     QList<DrawerGroup> groupsOf(int cabinetId) const override;
     DrawerGroup addGroup(DrawerGroup group) override;
     void updateGroup(const DrawerGroup &group) override;
+    void moveGroups(const QList<DrawerGroup> &groups) override;
     void resizeGroup(const DrawerGroup &group, const QList<DrawerGroup> &displaced) override;
     int itemsLostByResize(int groupId, int rows, int cols) const override;
     void removeGroup(int id) override;

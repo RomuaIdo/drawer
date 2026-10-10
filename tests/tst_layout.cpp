@@ -76,23 +76,37 @@ private slots:
 
     void dragSnapsToGridByDefault()
     {
-        const auto pos = Layout::dragTarget({1, 1}, 2.4, 0.6, true);
-        QCOMPARE(pos.x, 3.0);
-        QCOMPARE(pos.y, 2.0);
+        const auto d = Layout::dragDelta({{1, 1}}, {1, 1}, 2.4, 0.6, true);
+        QCOMPARE(d.x, 2.0);
+        QCOMPARE(d.y, 1.0);
     }
 
     void dragFreeKeepsFractions()
     {
-        const auto pos = Layout::dragTarget({1, 1}, 2.4, 0.6, false);
-        QVERIFY(qFuzzyCompare(pos.x, 3.4));
-        QVERIFY(qFuzzyCompare(pos.y, 1.6));
+        const auto d = Layout::dragDelta({{1, 1}}, {1, 1}, 2.4, 0.6, false);
+        QVERIFY(qFuzzyCompare(d.x, 2.4));
+        QVERIFY(qFuzzyCompare(d.y, 0.6));
     }
 
     void dragIsClampedToOrigin()
     {
-        const auto pos = Layout::dragTarget({1, 1}, -5, -0.2, false);
-        QCOMPARE(pos.x, 0.0);
-        QVERIFY(qFuzzyCompare(pos.y, 0.8));
+        const auto d = Layout::dragDelta({{1, 1}}, {1, 1}, -5, -0.2, false);
+        QCOMPARE(d.x, -1.0);
+        QVERIFY(qFuzzyCompare(d.y, -0.2));
+    }
+
+    void dragOfSeveralBlocksStopsWhenTheFirstHitsTheEdge()
+    {
+        // The block at x=0 cannot move left, so none of them can.
+        const auto d = Layout::dragDelta({{0, 3}, {2, 1}}, {2, 1}, -1, 0, true);
+        QCOMPARE(d.x, 0.0);
+    }
+
+    void dragSnapsRelativeToTheAnchor()
+    {
+        // The anchor at 1.5 snaps to 3; the block at 4 moves by the same 1.5.
+        const auto d = Layout::dragDelta({{1.5, 0}, {4, 0}}, {1.5, 0}, 1.2, 0, true);
+        QVERIFY(qFuzzyCompare(d.x, 1.5));
     }
 
     void growingPushesRightNeighbor()

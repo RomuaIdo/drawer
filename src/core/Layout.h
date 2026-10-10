@@ -23,9 +23,11 @@ bool collides(const DrawerGroup &group, const QList<DrawerGroup> &others);
 // filling gaps over growing the layout. Ties go to the top-left.
 Position suggestPosition(const QList<DrawerGroup> &groups, int rows, int cols);
 
-// Where a block ends up when dragged by (dx, dy) grid cells from `start`.
-// With `snap` the result lands on whole cells; it never goes above or left of the origin.
-Position dragTarget(Position start, double dx, double dy, bool snap);
+// Shift to apply to a set of blocks dragged by (dx, dy) grid cells. With `snap` the anchor
+// block (one of `origins`) lands on a whole cell and the others keep their offset to it.
+// The shift is limited so that no block goes above or left of the origin.
+Position dragDelta(const QList<Position> &origins, Position anchor, double dx, double dy,
+                   bool snap);
 
 // Groups that must move so that `resized` (already carrying its new size) overlaps nothing.
 // Neighbors are pushed right or down, whichever is closer, and the push cascades to

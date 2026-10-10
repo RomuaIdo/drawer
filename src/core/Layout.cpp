@@ -92,15 +92,20 @@ Position suggestPosition(const QList<DrawerGroup> &groups, int rows, int cols)
     return best ? best->position : Position{0, height};
 }
 
-Position dragTarget(Position start, double dx, double dy, bool snap)
+Position dragDelta(const QList<Position> &origins, Position anchor, double dx, double dy,
+                   bool snap)
 {
-    double x = start.x + dx;
-    double y = start.y + dy;
+    double shiftX = dx;
+    double shiftY = dy;
     if (snap) {
-        x = std::round(x);
-        y = std::round(y);
+        shiftX = std::round(anchor.x + dx) - anchor.x;
+        shiftY = std::round(anchor.y + dy) - anchor.y;
     }
-    return {std::max(0.0, x), std::max(0.0, y)};
+    for (const Position &o : origins) {
+        shiftX = std::max(shiftX, -o.x);
+        shiftY = std::max(shiftY, -o.y);
+    }
+    return {shiftX, shiftY};
 }
 
 QList<DrawerGroup> displacedByResize(const QList<DrawerGroup> &groups, const DrawerGroup &resized,
