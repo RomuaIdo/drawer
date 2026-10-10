@@ -1,7 +1,7 @@
 #include "CapacitorWidget.h"
 
+#include <QComboBox>
 #include <QFormLayout>
-#include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QVBoxLayout>
@@ -11,68 +11,75 @@
 #include "Engineering.h"
 #include "ResultLabel.h"
 
+using namespace CapacitorCode;
+
+namespace {
+constexpr int kAutomatic = -1;
+}
+
 CapacitorWidget::CapacitorWidget(QWidget *parent)
     : QWidget(parent)
-    , m_markingInput(new QLineEdit)
-    , m_decoded(makeResultLabel())
-    , m_valueInput(new QLineEdit)
-    , m_encoded(makeResultLabel())
+    , m_strip(new CapacitorStrip)
+    , m_input(new QLineEdit)
+    , m_type(new QComboBox)
+    , m_result(makeResultLabel())
 {
-    m_markingInput->setPlaceholderText(tr("e.g. 104, 223K, 4R7"));
-    m_valueInput->setPlaceholderText(tr("e.g. 100nF, 4.7u, 22p"));
+    m_input->setPlaceholderText(tr("e.g. 104, 223K, 4R7, 100n, 4u7"));
+    m_type->addItem(tr("Automatic"), kAutomatic);
+    for (CapacitorType type : {CapacitorType::CeramicDisc, CapacitorType::CeramicChip,
+                               CapacitorType::Film, CapacitorType::Electrolytic,
+                               CapacitorType::Tantalum})
+        m_type->addItem(name(type), int(type));
+    m_type->setToolTip(tr("Automatic picks the usual kind of capacitor for the value"));
 
-    auto *decodeBox = new QGroupBox(tr("Marking to value"));
-    auto *decodeForm = new QFormLayout(decodeBox);
-    decodeForm->addRow(tr("Marking"), m_markingInput);
-    decodeForm->addRow(m_decoded);
-
-    auto *encodeBox = new QGroupBox(tr("Value to marking"));
-    auto *encodeForm = new QFormLayout(encodeBox);
-    encodeForm->addRow(tr("Capacitance"), m_valueInput);
-    encodeForm->addRow(m_encoded);
+    auto *form = new QFormLayout;
+    form->addRow(tr("Marking or value"), m_input);
+    form->addRow(tr("Type"), m_type);
+    form->addRow(m_result);
 
     auto *layout = new QVBoxLayout(this);
-    layout->addWidget(new CapacitorStrip);
-    layout->addWidget(decodeBox);
-    layout->addWidget(encodeBox);
+    layout->addWidget(m_strip);
+    layout->addLayout(form);
     layout->addStretch();
 
-    connect(m_markingInput, &QLineEdit::textChanged, this, &CapacitorWidget::decodeMarking);
-    connect(m_valueInput, &QLineEdit::textChanged, this, &CapacitorWidget::encodeValue);
+    connect(m_input, &QLineEdit::textChanged, this, &CapacitorWidget::refresh);
+    connect(m_type, &QComboBox::currentIndexChanged, this, &CapacitorWidget::refresh);
+    refresh();
 }
 
-void CapacitorWidget::decodeMarking()
+void CapacitorWidget::refresh()
 {
-    const QString text = m_markingInput->text().trimmed();
-    if (text.isEmpty()) {
-        m_decoded->clear();
-        return;
-    }
-    const auto value = CapacitorCode::decode(text);
-    if (!value) {
-        m_decoded->setText(tr("Invalid marking"));
-        return;
-    }
-    QString result = Engineering::format(value->farads(), "F");
-    if (value->tolerancePercent)
-        result += QString("  ±%1%").arg(*value->tolerancePercent);
-    else if (value->tolerancePf)
-        result += QString("  ±%1 pF").arg(*value->tolerancePf);
-    m_decoded->setText(result);
-}
+    const QString text = m_input->text().trimmed();
+    const auto reading = read(text);
+    const bool automatic = m_type->currentData().toInt() == kAutomatic;
 
-void CapacitorWidget::encodeValue()
-{
-    const QString text = m_valueInput->text().trimmed();
+    // The drawing follows the value unless the type was fixed by hand.
+    CapacitorType type = CapacitorType::CeramicDisc;
+    if (!automatic)
+        type = static_cast<CapacitorType>(m_type->currentData().toInt());
+    else if (reading)
+        type = defaultTypeFor(reading->capacitance.picofarads);
+    m_strip->setType(type);
+
     if (text.isEmpty()) {
-        m_encoded->clear();
+        m_result->clear();
         return;
     }
-    const auto farads = Engineering::parse(text);
-    if (!farads) {
-        m_encoded->setText(tr("Not a valid value"));
+    if (!reading) {
+        m_result->setText(tr("Not a valid marking or value"));
         return;
     }
-    const auto code = CapacitorCode::encode(*farads * 1e12);
-    m_encoded->setText(code ? *code : tr("No 3-digit code for this value"));
+
+    const Capacitance &c = reading->capacitance;
+    QString tolerance = tr("not given");
+    if (c.tolerancePercent)
+        tolerance = QString("±%1%").arg(*c.tolerancePercent);
+    else if (c.tolerancePf)
+        tolerance = QString("±%1 pF").arg(*c.tolerancePf);
+
+    m_result->setText(
+        tr("Value: %1\nTolerance: %2\nMarking: %3\nDrawn as: %4%5")
+            .arg(Engineering::format(c.farads(), "F"), tolerance,
+                 reading->marking.isEmpty() ? tr("no 3-digit code") : reading->marking,
+                 name(type), automatic ? tr(" (automatic)") : QString()));
 }

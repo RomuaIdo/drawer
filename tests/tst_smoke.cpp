@@ -18,6 +18,7 @@
 #include "ui/ItemMime.h"
 #include "ui/ItemPanel.h"
 #include "ui/ItemTableModel.h"
+#include "tools/CapacitorCode.h"
 #include "tools/CapacitorStrip.h"
 #include "tools/ColorBandStrip.h"
 #include "tools/CapacitorWidget.h"
@@ -44,6 +45,38 @@ private slots:
         CsvExporter exporter;
         MainWindow window({cabinets, drawers, items, mapping, organization, db.undoLog()}, exporter);
         QCOMPARE(window.windowTitle(), QString("Drawer"));
+    }
+
+    void capacitorDrawingFollowsTheValueUntilTheTypeIsFixed()
+    {
+        using T = CapacitorCode::CapacitorType;
+        CapacitorWidget widget;
+        widget.show();
+        auto *strip = widget.findChild<CapacitorStrip *>();
+        auto *input = widget.findChild<QLineEdit *>();
+        auto *type = widget.findChild<QComboBox *>();
+        QVERIFY(strip && input && type);
+
+        input->setText("104");
+        QCOMPARE(strip->type(), T::CeramicDisc);
+        input->setText("470n");
+        QCOMPARE(strip->type(), T::Film);
+        input->setText("4u7");
+        QCOMPARE(strip->type(), T::Electrolytic);
+
+        type->setCurrentIndex(type->findData(int(T::Tantalum))); // Fixed by hand.
+        QCOMPARE(strip->type(), T::Tantalum);
+        input->setText("104");
+        QCOMPARE(strip->type(), T::Tantalum);
+
+        type->setCurrentIndex(0); // Back to automatic.
+        QCOMPARE(strip->type(), T::CeramicDisc);
+
+        // Every type paints.
+        for (int i = 1; i < type->count(); ++i) {
+            type->setCurrentIndex(i);
+            QVERIFY(!widget.grab().isNull());
+        }
     }
 
     void capacitorToolPaints()

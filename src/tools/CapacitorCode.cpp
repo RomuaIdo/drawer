@@ -1,7 +1,10 @@
 #include "CapacitorCode.h"
 
+#include <QObject>
 #include <QRegularExpression>
 #include <cmath>
+
+#include "Engineering.h"
 
 namespace CapacitorCode {
 
@@ -85,6 +88,56 @@ std::optional<QString> encode(double picofarads)
             return QString("%1%2").arg(int(rounded)).arg(exponent);
     }
     return std::nullopt;
+}
+
+QString name(CapacitorType type)
+{
+    switch (type) {
+    case CapacitorType::CeramicDisc: return QObject::tr("Ceramic disc");
+    case CapacitorType::CeramicChip: return QObject::tr("Ceramic chip (SMD)");
+    case CapacitorType::Film: return QObject::tr("Film (box)");
+    case CapacitorType::Electrolytic: return QObject::tr("Electrolytic");
+    case CapacitorType::Tantalum: return QObject::tr("Tantalum (SMD)");
+    }
+    return {};
+}
+
+CapacitorType defaultTypeFor(double picofarads)
+{
+    constexpr double kEpsilon = 1 + 1e-9; // 100n parsed as 100000.00000000001 pF is still 100 nF.
+    if (picofarads <= 100e3 * kEpsilon)
+        return CapacitorType::CeramicDisc;
+    if (picofarads <= 1e6 * kEpsilon)
+        return CapacitorType::Film;
+    return CapacitorType::Electrolytic;
+}
+
+std::optional<Reading> read(const QString &input)
+{
+    const QString text = input.trimmed();
+    if (text.isEmpty())
+        return std::nullopt;
+
+    // A marking first: "100F" is 10 pF with an F tolerance, not 100 farads.
+    if (const auto marked = decode(text)) {
+        Reading reading{*marked, QString()};
+        const QString letter = text.back().isLetter() && text.size() > 1 && text.at(text.size() - 2).isDigit()
+            ? QString(text.back().toUpper())
+            : QString();
+        if (const auto code = encode(marked->picofarads))
+            reading.marking = *code + letter;
+        return reading;
+    }
+
+    // Otherwise a value with an optional prefix and unit.
+    const auto farads = Engineering::parse(text);
+    if (!farads || *farads <= 0)
+        return std::nullopt;
+    Reading reading;
+    reading.capacitance.picofarads = *farads * 1e12;
+    if (const auto code = encode(reading.capacitance.picofarads))
+        reading.marking = *code;
+    return reading;
 }
 
 } // namespace CapacitorCode
