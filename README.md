@@ -21,6 +21,7 @@ ctest --test-dir build --output-on-failure
 
 - Create a cabinet, then add drawer groups: a 4x4 or 3x3 block, or a 1x1 group for a single drawer.
 - Double click a drawer to edit its label and size (small, medium, large); click it to manage its items.
+- Drag a block to move it; it snaps to the grid and turns red where it would overlap. Right click a block and enable "Move freely" to drop it anywhere. Esc cancels a drag.
 - The search box highlights every drawer holding a matching item.
 - File > Export writes the full mapping, including empty drawers, to a CSV file.
 - Tools > Electronics tools opens the calculators.
