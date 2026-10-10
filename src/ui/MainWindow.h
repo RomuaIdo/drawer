@@ -34,7 +34,7 @@ private:
     void addGroup();
     void editGroup(const DrawerGroup &group);
     void deleteGroup(const DrawerGroup &group);
-    void moveGroup(const DrawerGroup &group, double x, double y);
+    void moveGroups(const QList<DrawerGroup> &groups);
     void editDrawer(const Drawer &drawer);
     void exportOrganization();
     void importOrganization();

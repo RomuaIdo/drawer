@@ -59,7 +59,7 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applySearch);
     connect(m_panel, &ItemPanel::itemsChanged, this, &MainWindow::applySearch);
     connect(m_view, &CabinetView::drawerActivated, this, &MainWindow::editDrawer);
-    connect(m_view, &CabinetView::groupMoved, this, &MainWindow::moveGroup);
+    connect(m_view, &CabinetView::groupsMoved, this, &MainWindow::moveGroups);
     connect(m_view, &CabinetView::groupContextRequested, this, &MainWindow::showGroupMenu);
 
     guarded([this] { reloadCabinets(); });
@@ -376,13 +376,10 @@ void MainWindow::deleteGroup(const DrawerGroup &group)
     }
 }
 
-void MainWindow::moveGroup(const DrawerGroup &group, double x, double y)
+void MainWindow::moveGroups(const QList<DrawerGroup> &groups)
 {
-    DrawerGroup moved = group;
-    moved.posX = x;
-    moved.posY = y;
     guarded([&] {
-        m_drawers.updateGroup(moved);
+        m_drawers.moveGroups(groups);
         reloadView();
     });
 }

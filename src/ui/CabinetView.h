@@ -31,11 +31,15 @@ public:
     void setFreeMove(bool free) { m_freeMove = free; }
     bool freeMove() const { return m_freeMove; }
 
+    // Blocks currently selected for moving (Ctrl+click, rubber band or Ctrl+A).
+    QSet<int> selectedGroups() const { return m_selectedGroups; }
+
 signals:
     void drawerSelected(const Drawer &drawer);
     void drawerActivated(const Drawer &drawer); // Double click.
     void groupContextRequested(const DrawerGroup &group, const QPoint &globalPos);
-    void groupMoved(const DrawerGroup &group, double x, double y);
+    // Blocks dropped at a new place, carrying their new positions.
+    void groupsMoved(const QList<DrawerGroup> &groups);
 
 protected:
     bool event(QEvent *event) override;
@@ -58,18 +62,30 @@ private:
     Hit hitTest(const QPoint &pos) const;
     void drawGroupTag(QPainter &p, const DrawerGroup &group, const QList<Drawer> &drawers) const;
     void updateDrag(const QPoint &pos);
+    void updateBand(const QPoint &pos);
     void cancelDrag();
-    QList<DrawerGroup> otherGroups(int excludedId) const;
+    void setSelectedGroups(const QSet<int> &ids);
+    // Where a block is drawn: its stored position, or the drag preview.
+    DrawerGroup displayed(const DrawerGroup &group) const;
+    QList<DrawerGroup> unselectedGroups() const;
 
     QList<GroupLayout> m_layouts;
     int m_selectedDrawerId = 0;
     QSet<int> m_highlighted;
-
-    // Block drag state: a press on a drawer becomes a drag after a small movement.
+    QSet<int> m_selectedGroups;
     bool m_freeMove = false;
+    QPoint m_pressPos;
+    int m_pressedGroupId = 0; // Block under the mouse button; the anchor of a drag.
+    int m_collapseTo = 0;     // Block to select alone if the press turns out to be a plain click.
+
+    // Dragging the selected blocks; starts after a small movement.
     bool m_dragging = false;
     bool m_dragValid = false;
-    DrawerGroup m_dragGroup; // Candidate placement while dragging; id 0 when idle.
-    Layout::Position m_dragOrigin;
-    QPoint m_pressPos;
+    QHash<int, Layout::Position> m_dragOrigins; // Selected block id -> position at drag start.
+    Layout::Position m_dragShift;
+
+    // Rubber band selection started on empty space.
+    bool m_banding = false;
+    QRect m_bandRect;
+    QSet<int> m_bandBase; // Selection kept when Ctrl was held at the start.
 };

@@ -26,6 +26,8 @@ public:
     virtual DrawerGroup addGroup(DrawerGroup group) = 0;
     // Name, position and default size only; use resizeGroup to change the dimensions.
     virtual void updateGroup(const DrawerGroup &group) = 0;
+    // Stores the position of several blocks at once.
+    virtual void moveGroups(const QList<DrawerGroup> &groups) = 0;
     // Applies the group's new rows/cols: new cells get drawers (default size), cells that
     // no longer exist lose their drawers and items. `displaced` blocks (only their
     // position is used) are moved in the same transaction.

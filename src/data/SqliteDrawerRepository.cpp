@@ -46,6 +46,15 @@ void SqliteDrawerRepository::updateGroup(const DrawerGroup &group)
         {group.name, group.posX, group.posY, drawerSizeToString(group.defaultSize), group.id});
 }
 
+void SqliteDrawerRepository::moveGroups(const QList<DrawerGroup> &groups)
+{
+    SqlUtil::Transaction tx(m_db);
+    for (const DrawerGroup &g : groups)
+        SqlUtil::exec(m_db, "UPDATE drawer_groups SET pos_x = ?, pos_y = ? WHERE id = ?",
+                      {g.posX, g.posY, g.id});
+    tx.commit();
+}
+
 void SqliteDrawerRepository::resizeGroup(const DrawerGroup &group,
                                           const QList<DrawerGroup> &displaced)
 {
