@@ -4,6 +4,7 @@
 
 class QLabel;
 class QLineEdit;
+class SmdStrip;
 
 // Ohm's law: fill any two fields to compute the others.
 class OhmWidget : public QWidget
@@ -65,6 +66,7 @@ public:
 private:
     void recalculate();
 
+    SmdStrip *m_strip;
     QLineEdit *m_marking;
     QLabel *m_result;
 };

@@ -8,6 +8,7 @@
 #include "Formulas.h"
 #include "ResultLabel.h"
 #include "SmdCode.h"
+#include "SmdStrip.h"
 
 namespace {
 
@@ -149,10 +150,12 @@ void LedWidget::recalculate()
 
 SmdWidget::SmdWidget(QWidget *parent)
     : QWidget(parent)
-    , m_marking(makeInput("e.g. 472, 1002, 4R7"))
+    , m_strip(new SmdStrip)
+    , m_marking(makeInput("e.g. 472, 1002, 4R7, 01C"))
     , m_result(makeResultLabel())
 {
     auto *form = new QFormLayout(this);
+    form->addRow(m_strip);
     form->addRow(tr("SMD marking"), m_marking);
     form->addRow(m_result);
     connect(m_marking, &QLineEdit::textChanged, this, &SmdWidget::recalculate);
@@ -161,11 +164,12 @@ SmdWidget::SmdWidget(QWidget *parent)
 void SmdWidget::recalculate()
 {
     const QString text = m_marking->text().trimmed();
+    const auto ohms = text.isEmpty() ? std::nullopt : SmdCode::decode(text);
+    m_strip->setMarking(ohms ? text.toUpper() : QString());
     if (text.isEmpty()) {
         m_result->clear();
         return;
     }
-    const auto ohms = SmdCode::decode(text);
     m_result->setText(ohms ? Engineering::format(*ohms, QString::fromUtf8("Ω"))
                            : tr("Invalid marking"));
 }
