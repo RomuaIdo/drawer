@@ -9,6 +9,7 @@
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteMappingRepository.h"
 #include "data/SqliteOrganizationRepository.h"
+#include "data/UndoLog.h"
 #include "export/CsvExporter.h"
 #include "ui/MainWindow.h"
 
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
         SqliteOrganizationRepository organization(database.connection());
         CsvExporter exporter;
 
-        MainWindow window({cabinets, drawers, items, mapping, organization}, exporter);
+        MainWindow window({cabinets, drawers, items, mapping, organization, database.undoLog()}, exporter);
         window.show();
         return app.exec();
     } catch (const std::exception &e) {

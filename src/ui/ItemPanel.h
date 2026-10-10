@@ -22,6 +22,8 @@ public:
     void setDrawer(const Drawer &drawer, const QString &groupName,
                    const QList<ItemDialog::DrawerChoice> &destinations);
     void clear();
+    void selectAll();
+    QList<int> selectedItemIds() const;
     // Reloads the drawer's items, keeping the selection.
     void reload();
 
@@ -29,8 +31,10 @@ public:
     void setCanPaste(bool canPaste);
 
 signals:
-    void itemsChanged();
+    // `description` names what changed, for the undo history.
+    void itemsChanged(const QString &description);
     void copyRequested(const QList<int> &itemIds);
+    void cutRequested(const QList<int> &itemIds);
     void pasteRequested(); // Into the drawer shown in the panel.
 
 private:
@@ -38,7 +42,6 @@ private:
     void editItem();
     void removeItem();
     void adjustQuantity(int delta);
-    QList<int> selectedItemIds() const;
     void updateButtons();
     void showContextMenu(const QPoint &pos);
 

@@ -6,6 +6,7 @@
 #include <QUuid>
 
 #include "DatabaseError.h"
+#include "UndoLog.h"
 #include "SqlUtil.h"
 
 namespace {
@@ -65,10 +66,12 @@ Database::Database(const QString &path)
 
     SqlUtil::exec(db, "PRAGMA foreign_keys = ON");
     migrate();
+    m_undoLog = std::make_unique<UndoLog>(db); // After migrating: schema changes are not undoable.
 }
 
 Database::~Database()
 {
+    m_undoLog.reset();
     {
         QSqlDatabase db = QSqlDatabase::database(m_connectionName, false);
         if (db.isOpen())

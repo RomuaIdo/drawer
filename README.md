@@ -27,6 +27,7 @@ ctest --test-dir build --output-on-failure
 - Drag a block to move it; it snaps to the grid and turns red where it would overlap. Right click a block and enable "Move freely" to drop it anywhere. Esc cancels a drag.
 - The - and + buttons below the item list take or add one to the selected items (several rows can be selected). An item can have an optional minimum stock: at or below it, the row is tinted, and its drawer gets a red badge on the cabinet view.
 - Drag items from the list onto any drawer of the cabinet to move them; hold Ctrl while dropping to copy instead. Ctrl+C copies the selected items (or use the right click menu), and Ctrl+V or the right click menu on a drawer pastes them there as new items.
+- The Edit menu and the usual shortcuts work: Ctrl+Z undoes and Ctrl+Y (or Ctrl+Shift+Z) redoes any change to cabinets, blocks, drawers and items, one user action at a time; history lasts until the app closes. Ctrl+X cuts the selected items (pasting then moves them), Ctrl+C copies, Ctrl+V pastes into the selected drawer, and Ctrl+A selects all items when the list has the focus, otherwise all blocks.
 - The search box highlights every drawer holding a matching item.
 - File > Export mapping writes the full mapping, including empty drawers, to a CSV file.
 - File > Export organization saves cabinets, blocks, drawers and items to a JSON file; File > Import organization adds the cabinets from such a file to the current data (existing cabinets are kept, and an invalid file changes nothing).
