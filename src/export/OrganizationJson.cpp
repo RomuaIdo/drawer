@@ -1,5 +1,6 @@
 #include "OrganizationJson.h"
 
+#include <QColor>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -38,9 +39,12 @@ QJsonObject toJson(const GroupEntry &entry)
     for (const DrawerEntry &d : entry.drawers)
         drawers.append(toJson(d));
     const DrawerGroup &g = entry.group;
-    return {{"name", g.name}, {"rows", g.rows}, {"cols", g.cols}, {"posX", g.posX},
-            {"posY", g.posY}, {"defaultSize", drawerSizeToString(g.defaultSize)},
-            {"drawers", drawers}};
+    QJsonObject object{{"name", g.name}, {"rows", g.rows}, {"cols", g.cols}, {"posX", g.posX},
+                       {"posY", g.posY}, {"defaultSize", drawerSizeToString(g.defaultSize)},
+                       {"drawers", drawers}};
+    if (!g.color.isEmpty())
+        object["color"] = g.color;
+    return object;
 }
 
 QJsonObject toJson(const CabinetEntry &entry)
@@ -132,6 +136,14 @@ GroupEntry groupFromJson(const QJsonObject &o, const QString &where)
     if (g.posX < 0 || g.posY < 0)
         fail(where, "position must not be negative");
     g.defaultSize = requireSize(o, "defaultSize", where);
+
+    const QString color = requireString(o, "color", where, false);
+    if (!color.isEmpty()) {
+        const QColor parsed(color);
+        if (!parsed.isValid())
+            fail(where, QString("invalid color \"%1\"").arg(color));
+        g.color = parsed.name(); // Normalized to #rrggbb.
+    }
 
     // Start from default drawers, then apply the ones described in the file.
     QList<DrawerEntry> cells;

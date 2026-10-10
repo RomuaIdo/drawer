@@ -27,6 +27,13 @@ QColor sizeColor(DrawerSize size)
     return Qt::white;
 }
 
+// Group color when set, otherwise the color of the drawer's size.
+QColor drawerColor(const DrawerGroup &group, DrawerSize size)
+{
+    const QColor custom(group.color);
+    return custom.isValid() ? custom : sizeColor(size);
+}
+
 QString sizeLetter(DrawerSize size)
 {
     return drawerSizeToString(size).left(1).toUpper();
@@ -143,7 +150,7 @@ void CabinetView::drawGroupTag(QPainter &p, const DrawerGroup &group,
     // Same hue as the drawer under the tag, only darker.
     const DrawerSize size = drawers.isEmpty() ? group.defaultSize : drawers.first().size;
     p.setPen(Qt::NoPen);
-    p.setBrush(sizeColor(size).darker(kTagDarkening));
+    p.setBrush(drawerColor(group, size).darker(kTagDarkening));
     p.drawRoundedRect(tag, 3, 3);
     p.setPen(Qt::white);
     p.drawText(tag, Qt::AlignCenter, text);
@@ -169,8 +176,10 @@ void CabinetView::paintEvent(QPaintEvent *)
             if (d.id == m_selectedDrawerId)
                 selectedCell = cell;
 
+            const QColor fill = drawerColor(group, d.size);
+            const bool darkFill = fill.lightness() < 140;
             p.setPen(QPen(Qt::darkGray, 1));
-            p.setBrush(sizeColor(d.size));
+            p.setBrush(fill);
             p.drawRoundedRect(cell, 4, 4);
             if (highlighted) {
                 p.setPen(QPen(QColor(0xd8, 0x1b, 0x60), 3));
@@ -178,9 +187,10 @@ void CabinetView::paintEvent(QPaintEvent *)
                 p.drawRoundedRect(cell.adjusted(2, 2, -2, -2), 3, 3);
             }
 
-            p.setPen(Qt::black);
+            // Keep text readable on custom, possibly dark, colors.
+            p.setPen(darkFill ? Qt::white : Qt::black);
             p.drawText(cell.adjusted(4, 2, -4, -2), Qt::AlignCenter | Qt::TextWordWrap, d.label);
-            p.setPen(Qt::darkGray);
+            p.setPen(darkFill ? QColor(0xd0, 0xd0, 0xd0) : QColor(Qt::darkGray));
             p.drawText(cell.adjusted(4, 2, -4, -2), Qt::AlignRight | Qt::AlignBottom,
                        sizeLetter(d.size));
         }

@@ -6,13 +6,14 @@ QList<DrawerGroup> SqliteDrawerRepository::groupsOf(int cabinetId) const
 {
     QList<DrawerGroup> result;
     QSqlQuery q = SqlUtil::exec(m_db,
-        "SELECT id, cabinet_id, name, rows, cols, pos_x, pos_y, default_size "
+        "SELECT id, cabinet_id, name, rows, cols, pos_x, pos_y, default_size, color "
         "FROM drawer_groups WHERE cabinet_id = ? ORDER BY pos_y, pos_x, id",
         {cabinetId});
     while (q.next()) {
         result.append({q.value(0).toInt(), q.value(1).toInt(), q.value(2).toString(),
                        q.value(3).toInt(), q.value(4).toInt(), q.value(5).toDouble(),
-                       q.value(6).toDouble(), drawerSizeFromString(q.value(7).toString())});
+                       q.value(6).toDouble(), drawerSizeFromString(q.value(7).toString()),
+                       q.value(8).toString()});
     }
     return result;
 }
@@ -21,10 +22,10 @@ DrawerGroup SqliteDrawerRepository::addGroup(DrawerGroup group)
 {
     SqlUtil::Transaction tx(m_db);
     QSqlQuery q = SqlUtil::exec(m_db,
-        "INSERT INTO drawer_groups (cabinet_id, name, rows, cols, pos_x, pos_y, default_size) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO drawer_groups (cabinet_id, name, rows, cols, pos_x, pos_y, default_size, color) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         {group.cabinetId, group.name, group.rows, group.cols, group.posX, group.posY,
-         drawerSizeToString(group.defaultSize)});
+         drawerSizeToString(group.defaultSize), group.color});
     group.id = q.lastInsertId().toInt();
 
     for (int r = 0; r < group.rows; ++r) {
@@ -42,8 +43,10 @@ DrawerGroup SqliteDrawerRepository::addGroup(DrawerGroup group)
 void SqliteDrawerRepository::updateGroup(const DrawerGroup &group)
 {
     SqlUtil::exec(m_db,
-        "UPDATE drawer_groups SET name = ?, pos_x = ?, pos_y = ?, default_size = ? WHERE id = ?",
-        {group.name, group.posX, group.posY, drawerSizeToString(group.defaultSize), group.id});
+        "UPDATE drawer_groups SET name = ?, pos_x = ?, pos_y = ?, default_size = ?, color = ? "
+        "WHERE id = ?",
+        {group.name, group.posX, group.posY, drawerSizeToString(group.defaultSize), group.color,
+         group.id});
 }
 
 void SqliteDrawerRepository::moveGroups(const QList<DrawerGroup> &groups)
@@ -76,9 +79,9 @@ void SqliteDrawerRepository::resizeGroup(const DrawerGroup &group,
 
     SqlUtil::exec(m_db,
         "UPDATE drawer_groups SET name = ?, rows = ?, cols = ?, pos_x = ?, pos_y = ?, "
-        "default_size = ? WHERE id = ?",
+        "default_size = ?, color = ? WHERE id = ?",
         {group.name, group.rows, group.cols, group.posX, group.posY,
-         drawerSizeToString(group.defaultSize), group.id});
+         drawerSizeToString(group.defaultSize), group.color, group.id});
 
     for (const DrawerGroup &other : displaced) {
         SqlUtil::exec(m_db, "UPDATE drawer_groups SET pos_x = ?, pos_y = ? WHERE id = ?",

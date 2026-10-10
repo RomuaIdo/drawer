@@ -36,10 +36,10 @@ void SqliteOrganizationRepository::import(const Organization &organization)
         for (const GroupEntry &entry : cabinet.groups) {
             const DrawerGroup &g = entry.group;
             const int groupId = SqlUtil::exec(m_db,
-                "INSERT INTO drawer_groups (cabinet_id, name, rows, cols, pos_x, pos_y, default_size) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO drawer_groups (cabinet_id, name, rows, cols, pos_x, pos_y, default_size, "
+                "color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 {cabinetId, g.name, g.rows, g.cols, g.posX, g.posY,
-                 drawerSizeToString(g.defaultSize)}).lastInsertId().toInt();
+                 drawerSizeToString(g.defaultSize), g.color}).lastInsertId().toInt();
 
             for (const DrawerEntry &drawerEntry : entry.drawers) {
                 const Drawer &d = drawerEntry.drawer;

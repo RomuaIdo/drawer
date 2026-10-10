@@ -157,6 +157,26 @@ private slots:
         QCOMPARE(groups[1].posY, 5.0);
     }
 
+    void groupColorIsStoredAndUpdated()
+    {
+        DrawerGroup g;
+        g.cabinetId = m_cabinets->add({0, "A", ""}).id;
+        g.name = "Colored";
+        QVERIFY(m_drawers->groupsOf(g.cabinetId).isEmpty());
+        g.color = "#3366cc";
+        g = m_drawers->addGroup(g);
+        QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().color, QString("#3366cc"));
+
+        g.color.clear();
+        m_drawers->updateGroup(g);
+        QVERIFY(m_drawers->groupsOf(g.cabinetId).first().color.isEmpty());
+
+        g.color = "#112233";
+        g.cols = 2;
+        m_drawers->resizeGroup(g, {});
+        QCOMPARE(m_drawers->groupsOf(g.cabinetId).first().color, QString("#112233"));
+    }
+
     void drawerSizeUpdate()
     {
         const Drawer d = singleDrawer();
@@ -208,7 +228,7 @@ private slots:
     {
         QSqlQuery q(m_db->connection());
         QVERIFY(q.exec("PRAGMA user_version") && q.next());
-        QCOMPARE(q.value(0).toInt(), 1);
+        QCOMPARE(q.value(0).toInt(), 2);
     }
 
 private:

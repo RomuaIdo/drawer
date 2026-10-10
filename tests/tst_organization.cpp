@@ -25,6 +25,7 @@ void populate(Database &db)
     block.cols = 2;
     block.defaultSize = DrawerSize::Small;
     block.posX = 1.5;
+    block.color = "#3366cc";
     block = drawers.addGroup(block);
 
     Drawer first = drawers.drawersOf(block.id).first();
@@ -69,6 +70,7 @@ private slots:
         QCOMPARE(loaded.cabinets.size(), 1);
         const GroupEntry &group = loaded.cabinets[0].groups[0];
         QCOMPARE(group.group.posX, 1.5);
+        QCOMPARE(group.group.color, QString("#3366cc"));
         QCOMPARE(group.drawers.size(), 4);
         QCOMPARE(group.drawers[0].drawer.size, DrawerSize::Large);
         QCOMPARE(group.drawers[0].drawer.label, QString("Big one"));
@@ -127,6 +129,9 @@ private slots:
         g = good;
         g["defaultSize"] = "huge";
         QTest::newRow("unknown size") << withGroup(g);
+        g = good;
+        g["color"] = "not-a-color";
+        QTest::newRow("invalid color") << withGroup(g);
         g = good;
         g["posX"] = -1;
         QTest::newRow("negative position") << withGroup(g);

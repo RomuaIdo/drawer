@@ -15,8 +15,11 @@ inline QSqlQuery exec(const QSqlDatabase &db, const QString &sql, const QVariant
     QSqlQuery query(db);
     if (!query.prepare(sql))
         throw DatabaseError(query.lastError().text());
-    for (const QVariant &arg : args)
-        query.addBindValue(arg);
+    for (const QVariant &arg : args) {
+        // Text columns are NOT NULL; an unset QString must be stored as "", not NULL.
+        const bool nullString = arg.metaType().id() == QMetaType::QString && arg.toString().isNull();
+        query.addBindValue(nullString ? QVariant(QStringLiteral("")) : arg);
+    }
     if (!query.exec())
         throw DatabaseError(query.lastError().text() + " [" + sql + "]");
     return query;

@@ -7,6 +7,7 @@
 #include "core/Models.h"
 
 class QLineEdit;
+class QPushButton;
 class QDoubleSpinBox;
 class QSpinBox;
 class SizeComboBox;
@@ -31,6 +32,8 @@ public:
 
 private:
     void suggestPosition();
+    void chooseColor();
+    void showColor();
 
     DrawerGroup m_group;
     PlacementCheck m_isFree;
@@ -43,4 +46,6 @@ private:
     bool m_autoPosition = false;
     bool m_updatingPosition = false;
     SizeComboBox *m_size;
+    QPushButton *m_colorButton;
+    QString m_color; // Empty means colored by drawer size.
 };
