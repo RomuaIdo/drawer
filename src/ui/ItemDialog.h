@@ -30,6 +30,9 @@ public:
 
     // For items that are about to be restocked: the quantity is how many to add.
     void setRestockMode();
+    // Offers the items already in stock while the name is typed; choosing one fills the
+    // category, value, package, minimum stock and notes. Only for the one-entry form.
+    void setSuggestions(const QList<Item> &items);
     // Shows the dialog without blocking the main window (so its cabinet stays clickable) and
     // waits for it to close. Returns true if accepted; false if cancelled or already open.
     bool run();

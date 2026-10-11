@@ -1,4 +1,5 @@
 #include <QCheckBox>
+#include <QCompleter>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
@@ -323,6 +324,32 @@ private slots:
         buttonText(f.panel.get(), "Add")->click();
         QCOMPARE(f.quantityIn(2, "Bolt"), 0);
         QCOMPARE(f.quantityIn(0, "Bolt"), -1);
+    }
+
+    void typingANameSuggestsStockedItemsAndChoosingOneFillsTheForm()
+    {
+        Fixture f;
+        QStringList suggestions;
+        QString category, value;
+        onNextDialog([&](QWidget *dialog) {
+            auto *name = dialog->findChildren<QLineEdit *>()[0];
+            auto *completer = name->completer();
+            completer->setCompletionPrefix("wash");
+            for (int row = 0; row < completer->completionCount(); ++row)
+                suggestions << completer->completionModel()->index(row, 0).data().toString();
+            // What the popup emits when a suggestion is chosen.
+            const QModelIndex first = completer->completionModel()->index(0, 0);
+            emit completer->activated(completer->pathFromIndex(first));
+            emit completer->activated(first);
+            category = dialog->findChildren<QLineEdit *>()[1]->text();
+            value = dialog->findChildren<QLineEdit *>()[2]->text();
+            QCOMPARE(name->text(), QString("Washer")); // Just the name, not the description.
+            buttonText(dialog, "Cancel")->click();
+        });
+        buttonText(f.panel.get(), "Add")->click();
+        QCOMPARE(suggestions, QStringList({"Washer - M3 (Hardware)"}));
+        QCOMPARE(category, QString("Hardware"));
+        QCOMPARE(value, QString("M3"));
     }
 
     void theEditDialogCanMoveTheItemByClickingAnotherDrawer()

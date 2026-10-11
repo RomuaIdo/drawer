@@ -1,5 +1,7 @@
 #include "ItemDialog.h"
 
+#include "ItemCompleter.h"
+
 #include <QCheckBox>
 #include <QEventLoop>
 #include <QPointer>
@@ -51,6 +53,21 @@ void ItemDialog::updateOk()
 {
     // A name is required, and the drawer when it is being chosen.
     m_ok->setEnabled(!m_name->text().trimmed().isEmpty() && (!m_quantity || m_drawerId != 0));
+}
+
+void ItemDialog::setSuggestions(const QList<Item> &items)
+{
+    auto *completer = new ItemCompleter(this);
+    completer->setItems(items);
+    m_name->setCompleter(completer);
+    connect(completer, &ItemCompleter::itemChosen, this, [this](const Item &chosen) {
+        m_category->setText(chosen.category);
+        m_value->setText(chosen.value);
+        m_package->setText(chosen.package);
+        m_alert->setChecked(chosen.minStock.has_value());
+        m_minStock->setValue(chosen.minStock.value_or(0));
+        m_notes->setText(chosen.notes);
+    });
 }
 
 void ItemDialog::setRestockMode()

@@ -206,6 +206,10 @@ void AllItemsPanel::addItem()
     Item item;
     item.drawerId = m_defaultDrawerId ? m_defaultDrawerId : firstDrawerId(m_destinations);
     ItemDialog dialog(item, m_destinations, m_pickView, this);
+    try {
+        dialog.setSuggestions(m_items.all());
+    } catch (const DatabaseError &) {
+    }
     if (!dialog.run())
         return;
     try {

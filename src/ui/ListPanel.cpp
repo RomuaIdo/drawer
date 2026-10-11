@@ -177,6 +177,10 @@ void ListPanel::addNewItem()
     blank.quantity = 1;
     ItemDialog dialog(blank, m_destinations, m_pickView, this);
     dialog.setRestockMode();
+    try {
+        dialog.setSuggestions(m_items.all());
+    } catch (const DatabaseError &) {
+    }
     if (!dialog.run())
         return;
 

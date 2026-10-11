@@ -220,8 +220,8 @@ void ScrewDiagram::paintEvent(QPaintEvent *)
         p.setPen(c.text);
         p.drawText(QRectF(cx - 100, 0, 200, 18), Qt::AlignCenter, tr("Cylindrical head"));
 
-        widthOf(p, cx - 24, cx + 24, top - 14, headTop, tr("Head diameter"), TextAt::Right);
-        widthOf(p, cx - cb, cx + cb, top - 38, top, tr("Counterbore diameter"), TextAt::Left);
+        widthOf(p, cx - 24, cx + 24, top - 14, headTop, tr("Head diameter"), TextAt::Left);
+        widthOf(p, cx - cb, cx + cb, top - 38, top, tr("Counterbore diameter"));
         heightOf(p, headTop, headTop + head, cx + cb + 14, cx + 24, tr("Head\nheight"), true);
         heightOf(p, top, top + depth, cx - cb - 12, cx - cb, tr("Depth"), false, 40);
         widthOf(p, cx - hole, cx + hole, bottom + 14, bottom, tr("Clearance hole"), TextAt::Centered, true);
@@ -249,8 +249,8 @@ void ScrewDiagram::paintEvent(QPaintEvent *)
         p.setPen(c.text);
         p.drawText(QRectF(cx - 100, 0, 200, 18), Qt::AlignCenter, tr("Conical head"));
 
-        widthOf(p, cx - cone, cx + cone, top - 14, top, tr("Head diameter"), TextAt::Right);
-        widthOf(p, cx - sink, cx + sink, top - 38, top, tr("Countersink diameter"), TextAt::Left);
+        widthOf(p, cx - cone, cx + cone, top - 14, top, tr("Head diameter"), TextAt::Left);
+        widthOf(p, cx - sink, cx + sink, top - 38, top, tr("Countersink diameter"));
         widthOf(p, cx - hole, cx + hole, bottom + 14, bottom, tr("Clearance hole"), TextAt::Centered, true);
         p.restore();
     }
