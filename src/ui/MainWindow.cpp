@@ -4,9 +4,6 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDockWidget>
-#include <QFile>
-#include <QFileDialog>
-#include <QFileInfo>
 #include <QLineEdit>
 #include <QLabel>
 #include <QMenu>
@@ -16,10 +13,9 @@
 #include <QStatusBar>
 #include <QToolBar>
 
-#include "CabinetDialog.h"
+#include "CabinetEditor.h"
+#include "DataExchange.h"
 #include "CabinetView.h"
-#include "DrawerDialog.h"
-#include "GroupDialog.h"
 #include "AllItemsPanel.h"
 #include "DatabaseGuard.h"
 #include "ItemCompleter.h"
@@ -29,7 +25,6 @@
 #include "data/ItemSearch.h"
 #include "tools/ToolsDialog.h"
 #include "data/DatabaseError.h"
-#include "export/OrganizationJson.h"
 
 MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWidget *parent)
     : QMainWindow(parent)
@@ -134,6 +129,16 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     connect(m_view, &CabinetView::groupsMoved, this, &MainWindow::moveGroups);
     connect(m_view, &CabinetView::groupContextRequested, this, &MainWindow::showGroupMenu);
 
+    m_editor = new CabinetEditor(m_cabinets, m_drawers, this);
+    connect(m_editor, &CabinetEditor::cabinetsChanged, this,
+            [this](int selectId) { guarded([&] { reloadCabinets(selectId); }); });
+    connect(m_editor, &CabinetEditor::layoutChanged, this, &MainWindow::reloadView);
+    m_exchange = new DataExchange(m_organization, m_mapping, m_exporter, this);
+    connect(m_exchange, &DataExchange::imported, this, [this] { guarded([&] { reloadCabinets(); }); });
+    connect(m_exchange, &DataExchange::statusMessage, statusBar(), [this](const QString &message) {
+        statusBar()->showMessage(message);
+    });
+
     guarded([this] { reloadCabinets(); });
 }
 
@@ -141,10 +146,10 @@ void MainWindow::createActions()
 {
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(tr("&Import database..."), this, &MainWindow::importOrganization);
-    fileMenu->addAction(tr("Export &database..."), this, &MainWindow::exportOrganization);
+    fileMenu->addAction(tr("Export &database..."), this, [this] { m_exchange->exportOrganization(); });
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Export mapping as %1...").arg(m_exporter.name()), QKeySequence(Qt::CTRL | Qt::Key_E), this,
-                        &MainWindow::exportMapping);
+                        [this] { m_exchange->exportMapping(); });
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Quit"), QKeySequence::Quit, this, &QWidget::close);
 
@@ -253,87 +258,12 @@ void MainWindow::reloadView()
     }
 }
 
-void MainWindow::exportOrganization()
-{
-    QString path = QFileDialog::getSaveFileName(this, tr("Export database"),
-                                                "drawer-database.json",
-                                                tr("Drawer database (*.json)"));
-    if (path.isEmpty())
-        return;
-    if (QFileInfo(path).suffix().isEmpty())
-        path += ".json";
-
-    guarded([&] {
-        const Organization organization = m_organization.load();
-        QFile file(path);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
-            || file.write(OrganizationJson::write(organization)) < 0) {
-            QMessageBox::critical(this, tr("Export failed"), file.errorString());
-            return;
-        }
-        statusBar()->showMessage(
-            tr("Exported %n cabinet(s) to %1", "", organization.cabinets.size()).arg(path));
-    });
-}
-
-void MainWindow::importOrganization()
-{
-    ChangeScope scope(*this, tr("Import database"));
-    const QString path = QFileDialog::getOpenFileName(this, tr("Import database"), QString(),
-                                                      tr("Drawer database (*.json)"));
-    if (path.isEmpty())
-        return;
-
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::critical(this, tr("Import failed"), file.errorString());
-        return;
-    }
-    try {
-        const Organization organization = OrganizationJson::read(file.readAll());
-        const auto answer = QMessageBox::question(
-            this, tr("Import database"),
-            tr("Add %n cabinet(s) from this file? Existing cabinets are kept.", "",
-               organization.cabinets.size()));
-        if (answer != QMessageBox::Yes)
-            return;
-        m_organization.import(organization);
-        reloadCabinets();
-        statusBar()->showMessage(tr("Imported %n cabinet(s)", "", organization.cabinets.size()));
-    } catch (const OrganizationFormatError &e) {
-        QMessageBox::critical(this, tr("Import failed"), QString::fromUtf8(e.what()));
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), QString::fromUtf8(e.what()));
-    }
-}
-
 void MainWindow::showTools()
 {
     if (!m_toolsDialog)
         m_toolsDialog = new ToolsDialog(m_tools, this);
     m_toolsDialog->show();
     m_toolsDialog->raise();
-}
-
-void MainWindow::exportMapping()
-{
-    QString path = QFileDialog::getSaveFileName(this, tr("Export mapping"), "drawer-mapping",
-                                                m_exporter.fileFilter());
-    if (path.isEmpty())
-        return;
-    if (QFileInfo(path).suffix().isEmpty())
-        path += "." + m_exporter.defaultSuffix();
-
-    guarded([&] {
-        const QList<MappingRow> rows = m_mapping.rows();
-        QFile file(path);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            QMessageBox::critical(this, tr("Export failed"), file.errorString());
-            return;
-        }
-        m_exporter.write(rows, file);
-        statusBar()->showMessage(tr("Exported %n row(s) to %1", "", rows.size()).arg(path));
-    });
 }
 
 void MainWindow::selectDrawer(const Drawer &drawer)
@@ -451,144 +381,59 @@ void MainWindow::refreshCategories()
     m_allItems->setCategoryFilter(m_category->currentData().toString());
 }
 
+// Each structural change is one undo step; the editor reports what to reload.
 void MainWindow::addCabinet()
 {
     ChangeScope scope(*this, tr("Add cabinet"));
-    CabinetDialog dialog({}, this);
-    if (dialog.exec() == QDialog::Accepted) {
-        guarded([&] { reloadCabinets(m_cabinets.add(dialog.cabinet()).id); });
-    }
+    m_editor->addCabinet();
 }
 
 void MainWindow::editCabinet()
 {
     ChangeScope scope(*this, tr("Edit cabinet"));
-    const int id = currentCabinetId();
-    if (!id)
-        return;
-    guarded([&] {
-        for (const Cabinet &c : m_cabinets.all()) {
-            if (c.id != id)
-                continue;
-            CabinetDialog dialog(c, this);
-            if (dialog.exec() == QDialog::Accepted) {
-                m_cabinets.update(dialog.cabinet());
-                reloadCabinets(id);
-            }
-        }
-    });
+    m_editor->editCabinet(currentCabinetId());
 }
 
 void MainWindow::deleteCabinet()
 {
     ChangeScope scope(*this, tr("Delete cabinet"));
-    const int id = currentCabinetId();
-    if (!id)
-        return;
-    const auto answer = QMessageBox::question(
-        this, tr("Delete cabinet"),
-        tr("Delete \"%1\" with all its drawers and items?").arg(m_cabinetCombo->currentText()));
-    if (answer == QMessageBox::Yes) {
-        guarded([&] {
-            m_cabinets.remove(id);
-            reloadCabinets();
-        });
-    }
+    m_editor->deleteCabinet(currentCabinetId(), m_cabinetCombo->currentText());
 }
 
 void MainWindow::addGroup()
 {
     ChangeScope scope(*this, tr("Add drawer group"));
-    const int cabinetId = currentCabinetId();
-    if (!cabinetId) {
-        QMessageBox::information(this, tr("Drawer group"), tr("Create a cabinet first."));
-        return;
-    }
-    guarded([&] {
-        const QList<DrawerGroup> existing = m_drawers.groupsOf(cabinetId);
-        DrawerGroup proposal;
-        proposal.cabinetId = cabinetId;
-        proposal.rows = proposal.cols = 4;
-
-        GroupDialog dialog(
-            proposal, [&](const DrawerGroup &g) { return !Layout::collides(g, existing); },
-            [&](int rows, int cols) { return Layout::suggestPosition(existing, rows, cols); },
-            this);
-        if (dialog.exec() == QDialog::Accepted) {
-            m_drawers.addGroup(dialog.group());
-            reloadView();
-        }
-    });
+    m_editor->addGroup(currentCabinetId());
 }
 
 void MainWindow::editGroup(const DrawerGroup &group)
 {
     ChangeScope scope(*this, tr("Edit drawer group"));
-    guarded([&] {
-        const QList<DrawerGroup> existing = m_drawers.groupsOf(group.cabinetId);
-        const auto sameSize = [&](const DrawerGroup &g) {
-            return g.rows == group.rows && g.cols == group.cols;
-        };
-        // A resize pushes its neighbors away, so only plain moves can collide.
-        GroupDialog dialog(
-            group,
-            [&](const DrawerGroup &g) { return !sameSize(g) || !Layout::collides(g, existing); },
-            {}, this);
-        if (dialog.exec() != QDialog::Accepted)
-            return;
-
-        const DrawerGroup edited = dialog.group();
-        if (sameSize(edited)) {
-            m_drawers.updateGroup(edited);
-        } else {
-            const int lost = m_drawers.itemsLostByResize(edited.id, edited.rows, edited.cols);
-            if (lost > 0
-                && QMessageBox::warning(
-                       this, tr("Resize drawer group"),
-                       tr("Shrinking removes drawers that hold %n item(s). Continue?", "", lost),
-                       QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
-                    != QMessageBox::Yes)
-                return;
-            m_drawers.resizeGroup(
-                edited, Layout::displacedByResize(existing, edited, group.rows, group.cols));
-        }
-        reloadView();
-    });
+    m_editor->editGroup(group);
 }
 
 void MainWindow::deleteGroup(const DrawerGroup &group)
 {
     ChangeScope scope(*this, tr("Delete drawer group"));
-    const auto answer = QMessageBox::question(
-        this, tr("Delete drawer group"),
-        tr("Delete \"%1\" with all its drawers and items?").arg(group.name));
-    if (answer == QMessageBox::Yes) {
-        guarded([&] {
-            m_drawers.removeGroup(group.id);
-            reloadView();
-        });
-    }
+    m_editor->deleteGroup(group);
 }
 
 void MainWindow::moveGroups(const QList<DrawerGroup> &groups)
 {
     ChangeScope scope(*this, tr("Move drawer groups"));
-    guarded([&] {
-        m_drawers.moveGroups(groups);
-        reloadView();
-    });
+    m_editor->moveGroups(groups);
 }
 
 void MainWindow::editDrawer(const Drawer &drawer)
 {
     ChangeScope scope(*this, tr("Edit drawer"));
-    DrawerDialog dialog(drawer, this);
-    if (dialog.exec() == QDialog::Accepted) {
-        guarded([&] {
-            m_drawers.updateDrawer(dialog.drawer());
-            reloadView();
-        });
-    }
+    m_editor->editDrawer(drawer);
+}
+
+void MainWindow::importOrganization()
+{
+    ChangeScope scope(*this, tr("Import database"));
+    m_exchange->importOrganization();
 }
 
 void MainWindow::showGroupMenu(const DrawerGroup &group, int drawerId, const QPoint &globalPos)

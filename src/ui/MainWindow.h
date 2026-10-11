@@ -9,7 +9,9 @@
 #include "export/Exporter.h"
 #include "tools/ToolRegistry.h"
 
+class CabinetEditor;
 class CabinetView;
+class DataExchange;
 class AllItemsPanel;
 class ItemCompleter;
 class ItemPanel;
@@ -42,10 +44,8 @@ private:
     void deleteGroup(const DrawerGroup &group);
     void moveGroups(const QList<DrawerGroup> &groups);
     void editDrawer(const Drawer &drawer);
-    void exportOrganization();
     void importOrganization();
     void showTools();
-    void exportMapping();
     void selectDrawer(const Drawer &drawer);
     void applySearch();
     void updateLowStock();
@@ -103,6 +103,8 @@ private:
     const IExporter &m_exporter;
     ToolRegistry m_tools;
     ToolsDialog *m_toolsDialog = nullptr;
+    CabinetEditor *m_editor = nullptr; // Dialogs that change cabinets, groups and drawers.
+    DataExchange *m_exchange = nullptr; // File import and export.
     QComboBox *m_cabinetCombo;
     CabinetView *m_view;
     ItemPanel *m_panel;
