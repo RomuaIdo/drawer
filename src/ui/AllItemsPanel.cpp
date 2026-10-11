@@ -235,7 +235,7 @@ void AllItemsPanel::editItem()
         QList<ItemLocation> occurrences;
         if (!runGuarded(this, [&] { occurrences = m_items.locationsOf(ids.first()); }))
             return;
-        ItemDialog dialog(*first, occurrences, this);
+        ItemEntriesDialog dialog(*first, occurrences, this);
         if (dialog.exec() != QDialog::Accepted
             || !runGuarded(this, [&] { m_items.updateEntries(dialog.item(), dialog.quantities()); }))
             return;

@@ -3,6 +3,7 @@
 #include <QWidget>
 
 #include "ItemDialog.h"
+#include "ItemEntriesDialog.h"
 #include "data/Repositories.h"
 
 class AllItemsModel;
