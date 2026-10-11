@@ -49,7 +49,7 @@ public:
         const QRectF row = QRectF(option.rect).adjusted(kInset, 1, -kInset, -1);
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing);
-        const bool current = option.state & QStyle::State_Selected;
+        const bool current = option.state & (QStyle::State_Selected | QStyle::State_MouseOver);
         if (current) {
             painter->setPen(Qt::NoPen);
             painter->setBrush(option.palette.color(QPalette::Highlight));
@@ -80,6 +80,8 @@ public:
         viewport()->setAttribute(Qt::WA_TranslucentBackground);
         viewport()->setAutoFillBackground(false);
         setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setMouseTracking(true); // Hovering highlights a row, like the arrow keys do.
+        viewport()->setMouseTracking(true);
     }
 
     // The completer replaces the delegate and the window flags when the popup is installed.
