@@ -10,6 +10,7 @@
 #include <QTableView>
 #include <QVBoxLayout>
 
+#include "DatabaseGuard.h"
 #include "ItemDialog.h"
 #include "ListModel.h"
 #include "data/DatabaseError.h"
@@ -89,12 +90,8 @@ ListPanel::ListPanel(ListKind kind, IListRepository &lists, IItemRepository &ite
     layout->addLayout(buttons);
 
     connect(m_model, &ListModel::quantityEdited, this, [this](int lineId, int quantity) {
-        try {
-            m_lists.setQuantity(lineId, quantity);
-        } catch (const DatabaseError &e) {
-            QMessageBox::critical(this, tr("Database error"), e.what());
+        if (!runGuarded(this, [&] { m_lists.setQuantity(lineId, quantity); }))
             return;
-        }
         reload();
         emit listChanged(m_kind == ListKind::Pick ? tr("Change pick list quantity")
                                                   : tr("Change restock list quantity"));
@@ -118,11 +115,7 @@ int ListPanel::lineCount() const
 void ListPanel::reload()
 {
     m_table->clearSelection();
-    try {
-        m_model->setLines(m_lists.lines(m_kind));
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
-    }
+    runGuarded(this, [&] { m_model->setLines(m_lists.lines(m_kind)); });
     m_remove->setEnabled(false);
     updateSummary();
 }
@@ -177,23 +170,18 @@ void ListPanel::addNewItem()
     blank.quantity = 1;
     ItemDialog dialog(blank, m_destinations, m_pickView, this);
     dialog.setRestockMode();
-    try {
-        dialog.setSuggestions(m_items.all());
-    } catch (const DatabaseError &) {
-    }
+    runGuarded(this, [&] { dialog.setSuggestions(m_items.all()); });
     if (!dialog.run())
         return;
 
     Item item = dialog.item();
     const int toAdd = std::max(1, item.quantity);
     item.quantity = 0;
-    try {
-        const Item added = m_items.add(item);
-        m_lists.add(ListKind::Restock, {added.id}, toAdd);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] {
+            const Item added = m_items.add(item);
+            m_lists.add(ListKind::Restock, {added.id}, toAdd);
+        }))
         return;
-    }
     reload();
     emit itemsChanged(tr("Add item to restock list"));
 }
@@ -205,12 +193,8 @@ void ListPanel::removeSelected()
         ids.append(m_model->lineAt(index.row()).id);
     if (ids.isEmpty())
         return;
-    try {
-        m_lists.remove(ids);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] { m_lists.remove(ids); }))
         return;
-    }
     reload();
     emit listChanged(tr("Remove list line(s)"));
 }
@@ -219,12 +203,8 @@ void ListPanel::clearAll()
 {
     if (m_model->rowCount() == 0)
         return;
-    try {
-        m_lists.clear(m_kind);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] { m_lists.clear(m_kind); }))
         return;
-    }
     reload();
     emit listChanged(tr("Clear list"));
 }
@@ -251,12 +231,8 @@ void ListPanel::applyToStock()
     if (QMessageBox::question(this, m_apply->text(), question) != QMessageBox::Yes)
         return;
 
-    try {
-        m_lists.apply(m_kind);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] { m_lists.apply(m_kind); }))
         return;
-    }
     reload();
     emit applied(m_kind == ListKind::Pick ? tr("Take pick list from stock")
                                           : tr("Restock from list"));

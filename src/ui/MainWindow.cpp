@@ -21,6 +21,7 @@
 #include "DrawerDialog.h"
 #include "GroupDialog.h"
 #include "AllItemsPanel.h"
+#include "DatabaseGuard.h"
 #include "ItemCompleter.h"
 #include "ItemPanel.h"
 #include "ListPanel.h"
@@ -190,11 +191,7 @@ void MainWindow::createActions()
 
 template <typename Fn> void MainWindow::guarded(Fn &&action)
 {
-    try {
-        action();
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), QString::fromUtf8(e.what()));
-    }
+    runGuarded(this, action);
 }
 
 int MainWindow::currentCabinetId() const

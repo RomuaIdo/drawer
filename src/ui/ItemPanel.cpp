@@ -9,6 +9,7 @@
 #include <QTableView>
 #include <QVBoxLayout>
 
+#include "DatabaseGuard.h"
 #include "ItemTableModel.h"
 #include "data/DatabaseError.h"
 
@@ -132,7 +133,7 @@ void ItemPanel::clear()
 void ItemPanel::reload()
 {
     const QList<int> previouslySelected = selectedItemIds();
-    try {
+    runGuarded(this, [&] {
         m_model->setItems(m_items.inDrawer(m_drawerId));
         for (int id : previouslySelected) {
             const int row = m_model->rowOfItem(id);
@@ -141,9 +142,7 @@ void ItemPanel::reload()
                     m_model->index(row, 0),
                     QItemSelectionModel::Select | QItemSelectionModel::Rows);
         }
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
-    }
+    });
     updateButtons();
 }
 
@@ -171,12 +170,8 @@ void ItemPanel::adjustQuantity(int delta)
     const QList<int> ids = selectedItemIds();
     if (ids.isEmpty())
         return;
-    try {
-        m_items.adjustQuantity(ids, delta);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] { m_items.adjustQuantity(ids, delta); }))
         return;
-    }
     reload();
     emit itemsChanged(tr("Adjust quantity"));
 }
@@ -186,18 +181,11 @@ void ItemPanel::addItem()
     Item item;
     item.drawerId = m_drawerId;
     ItemDialog dialog(item, m_destinations, m_pickView, this);
-    try {
-        dialog.setSuggestions(m_items.all());
-    } catch (const DatabaseError &) {
-    }
+    runGuarded(this, [&] { dialog.setSuggestions(m_items.all()); });
     if (!dialog.run())
         return;
-    try {
-        m_items.add(dialog.item());
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] { m_items.add(dialog.item()); }))
         return;
-    }
     reload();
     emit itemsChanged(tr("Add item"));
 }
@@ -210,12 +198,8 @@ void ItemPanel::editItem()
     ItemDialog dialog(m_model->itemAt(index.row()), m_destinations, m_pickView, this);
     if (!dialog.run())
         return;
-    try {
-        m_items.update(dialog.item());
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] { m_items.update(dialog.item()); }))
         return;
-    }
     reload();
     emit itemsChanged(tr("Edit item"));
 }
@@ -230,13 +214,11 @@ void ItemPanel::removeItem()
         : tr("Remove %n selected item(s)?", "", ids.size());
     if (QMessageBox::question(this, tr("Remove item"), what) != QMessageBox::Yes)
         return;
-    try {
-        for (int id : ids)
-            m_items.remove(id);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] {
+            for (int id : ids)
+                m_items.remove(id);
+        }))
         return;
-    }
     reload();
     emit itemsChanged(tr("Remove item(s)"));
 }
