@@ -4,6 +4,7 @@
 #include <QFormLayout>
 
 #include "ResultLabel.h"
+#include "ScrewDiagram.h"
 #include "Screws.h"
 
 namespace {
@@ -25,6 +26,7 @@ ScrewWidget::ScrewWidget(QWidget *parent)
 
     auto *form = new QFormLayout(this);
     form->addRow(tr("Screw"), m_size);
+    form->addRow(new ScrewDiagram);
     form->addRow(m_result);
     connect(m_size, &QComboBox::currentTextChanged, this, &ScrewWidget::showScrew);
     showScrew();
