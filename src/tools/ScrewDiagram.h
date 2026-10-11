@@ -18,6 +18,6 @@ protected:
 
 private:
     static constexpr int kThreadWidth = 300;
-    static constexpr int kHeadWidth = 250;
-    static constexpr int kHeight = 235;
+    static constexpr int kHeadWidth = 270;
+    static constexpr int kHeight = 245;
 };
