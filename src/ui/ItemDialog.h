@@ -1,65 +1,36 @@
 #pragma once
 
-#include <QDialog>
-#include <QList>
-#include <QPair>
-
 #include "CabinetView.h"
-#include "core/Models.h"
+#include "ItemFormDialog.h"
 
-class QCheckBox;
 class QLabel;
-class QPushButton;
-class QLineEdit;
 class QSpinBox;
-class QTableWidget;
 
-// Edits one item, or all the entries of an item that is stored in several drawers.
-class ItemDialog : public QDialog
+// Adds or edits one entry of an item: the drawer is picked by clicking it on `cabinet`, the
+// cabinet view that is already open in the main window, so editing can also move the item.
+class ItemDialog : public ItemFormDialog
 {
     Q_OBJECT
 
 public:
-    // One entry. The drawer is picked by clicking it on `cabinet`, the cabinet view that is
-    // already open in the main window, so editing an item can also move it.
     ItemDialog(const Item &item, const DrawerLayouts &drawers, CabinetView *cabinet,
                QWidget *parent = nullptr);
-    // Every entry of an item: the common fields apply to all of them, and a sub-table lists
-    // each occurrence with its own editable quantity.
-    ItemDialog(const Item &item, const QList<ItemLocation> &occurrences, QWidget *parent = nullptr);
 
     // For items that are about to be restocked: the quantity is how many to add.
     void setRestockMode();
     // Offers the items already in stock while the name is typed; choosing one fills the
-    // category, value, package, minimum stock and notes. Only for the one-entry form.
+    // category, value, package, minimum stock and notes.
     void setSuggestions(const QList<Item> &items);
-    // Shows the dialog without blocking the main window (so its cabinet stays clickable) and
-    // waits for it to close. Returns true if accepted; false if cancelled or already open.
-    bool run();
-    Item item() const;
-    // (item id, quantity) per occurrence; only for the second form.
-    QList<QPair<int, int>> quantities() const;
+    Item item() const override;
+
+protected:
+    bool isComplete() const override { return m_drawerId != 0; }
 
 private:
-    void setup(const Item &item);
     void chooseDrawer(int drawerId);
-    void updateOk();
-    QWidget *buildOccurrences(const QList<ItemLocation> &occurrences);
 
-    Item m_item;
-    CabinetView *m_cabinet = nullptr;  // Where the drawer is clicked; one-entry form only.
-    QLabel *m_drawerText = nullptr;
-    QPushButton *m_ok = nullptr;
     DrawerLayouts m_layouts;
+    QLabel *m_drawerText;
+    QSpinBox *m_quantity;
     int m_drawerId = 0;
-    QSpinBox *m_quantity = nullptr;    // One-entry form only.
-    QTableWidget *m_occurrences = nullptr; // Every-entry form only.
-    QList<int> m_occurrenceIds;
-    QLineEdit *m_name = nullptr;
-    QLineEdit *m_category = nullptr;
-    QLineEdit *m_value = nullptr;
-    QLineEdit *m_package = nullptr;
-    QCheckBox *m_alert = nullptr;
-    QSpinBox *m_minStock = nullptr;
-    QLineEdit *m_notes = nullptr;
 };

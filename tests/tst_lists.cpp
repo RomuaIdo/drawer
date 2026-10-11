@@ -26,7 +26,7 @@ QWidget *openDialog()
     if (QWidget *modal = QApplication::activeModalWidget())
         return modal;
     for (QWidget *w : QApplication::topLevelWidgets()) {
-        if (w->isVisible() && qobject_cast<ItemDialog *>(w))
+        if (w->isVisible() && qobject_cast<ItemFormDialog *>(w))
             return w;
     }
     return nullptr;
