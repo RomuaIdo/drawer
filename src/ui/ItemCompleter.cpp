@@ -49,10 +49,18 @@ public:
         const QRectF row = QRectF(option.rect).adjusted(kInset, 1, -kInset, -1);
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing);
-        const bool current = option.state & (QStyle::State_Selected | QStyle::State_MouseOver);
-        if (current) {
+        const bool current = option.state & QStyle::State_Selected; // Keyboard.
+        const bool hovered = option.state & QStyle::State_MouseOver;
+        if (current || hovered) {
+            // Hover is a subtle tint of the text color; the keyboard row uses the accent.
+            const QPalette &p = option.palette;
+            QColor tint = p.color(QPalette::Base);
+            const QColor text = p.color(QPalette::Text);
+            tint = QColor::fromRgbF(tint.redF() * 0.85 + text.redF() * 0.15,
+                                    tint.greenF() * 0.85 + text.greenF() * 0.15,
+                                    tint.blueF() * 0.85 + text.blueF() * 0.15);
             painter->setPen(Qt::NoPen);
-            painter->setBrush(option.palette.color(QPalette::Highlight));
+            painter->setBrush(current ? p.color(QPalette::Highlight) : tint);
             painter->drawRoundedRect(row, kRadius - 2, kRadius - 2);
         }
         painter->setPen(option.palette.color(current ? QPalette::HighlightedText : QPalette::Text));
