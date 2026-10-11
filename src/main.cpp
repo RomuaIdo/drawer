@@ -13,11 +13,14 @@
 #include "data/UndoLog.h"
 #include "export/CsvExporter.h"
 #include "ui/MainWindow.h"
+#include "ui/ScrollBarHoverFix.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     QApplication::setApplicationName("Drawer");
+    ScrollBarHoverFix scrollBarFix;
+    app.installEventFilter(&scrollBarFix);
 
     try {
         const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
