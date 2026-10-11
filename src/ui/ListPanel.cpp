@@ -175,9 +175,9 @@ void ListPanel::addNewItem()
     Item blank;
     blank.drawerId = m_defaultDrawerId;
     blank.quantity = 1;
-    ItemDialog dialog(blank, m_destinations, this);
+    ItemDialog dialog(blank, m_destinations, m_pickView, this);
     dialog.setRestockMode();
-    if (dialog.exec() != QDialog::Accepted)
+    if (!dialog.run())
         return;
 
     Item item = dialog.item();

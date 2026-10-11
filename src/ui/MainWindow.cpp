@@ -67,6 +67,9 @@ MainWindow::MainWindow(const Repositories &repos, const IExporter &exporter, QWi
     addDockWidget(Qt::RightDockWidgetArea, dock);
     dock->setMinimumWidth(420);
 
+    m_panel->setPickView(m_view);
+    m_allItems->setPickView(m_view);
+    m_restockList->setPickView(m_view);
     createActions();
 
     connect(m_cabinetCombo, &QComboBox::currentIndexChanged, this, &MainWindow::reloadView);

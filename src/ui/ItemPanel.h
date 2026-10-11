@@ -21,6 +21,8 @@ public:
     // `destinations` are the drawers an item may be moved to.
     void setDrawer(const Drawer &drawer, const QString &groupName,
                    const DrawerLayouts &destinations);
+    // The cabinet view the Add/Edit dialogs take the clicked drawer from.
+    void setPickView(CabinetView *view) { m_pickView = view; }
     void clear();
     void selectAll();
     void removeSelected() { removeItem(); } // Asks first.
@@ -60,4 +62,5 @@ private:
     int m_drawerId = 0;
     bool m_canPaste = false;
     DrawerLayouts m_destinations;
+    CabinetView *m_pickView = nullptr;
 };

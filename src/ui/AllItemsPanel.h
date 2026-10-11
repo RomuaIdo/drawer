@@ -25,6 +25,8 @@ public:
     // Drawers an item can be put in, and the one a new item starts in.
     void setDestinations(const DrawerLayouts &drawers);
     void setDefaultDrawer(int drawerId) { m_defaultDrawerId = drawerId; }
+    // The cabinet view the Add/Edit dialogs take the clicked drawer from.
+    void setPickView(CabinetView *view) { m_pickView = view; }
 
     void reload();
     // Drawers of the selected row; empty when nothing is selected.
@@ -68,4 +70,5 @@ private:
     int m_defaultDrawerId = 0;
     QString m_category;
     DrawerLayouts m_destinations;
+    CabinetView *m_pickView = nullptr;
 };

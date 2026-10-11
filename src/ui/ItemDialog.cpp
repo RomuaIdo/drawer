@@ -1,6 +1,8 @@
 #include "ItemDialog.h"
 
 #include <QCheckBox>
+#include <QEventLoop>
+#include <QPointer>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -8,33 +10,31 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QScrollArea>
-#include <QVBoxLayout>
 #include <QSpinBox>
 #include <QTableWidget>
 
-ItemDialog::ItemDialog(const Item &item, const DrawerLayouts &drawers, QWidget *parent)
+ItemDialog::ItemDialog(const Item &item, const DrawerLayouts &drawers, CabinetView *cabinet,
+                       QWidget *parent)
     : QDialog(parent)
     , m_item(item)
-    , m_picker(new CabinetView)
+    , m_cabinet(cabinet)
     , m_drawerText(new QLabel)
     , m_layouts(drawers)
     , m_quantity(new QSpinBox)
 {
     m_quantity->setRange(0, 1000000);
     m_quantity->setValue(item.quantity);
-    m_picker->setPickerMode(true);
-    m_picker->setLayouts(m_layouts);
     setup(item);
-    connect(m_picker, &CabinetView::drawerSelected, this,
-            [this](const Drawer &drawer) { chooseDrawer(drawer.id); });
+    if (m_cabinet)
+        connect(m_cabinet, &CabinetView::drawerSelected, this,
+                [this](const Drawer &drawer) { chooseDrawer(drawer.id); });
     chooseDrawer(item.drawerId);
 }
 
 void ItemDialog::chooseDrawer(int drawerId)
 {
     m_drawerId = 0;
-    QString text = tr("Click a drawer");
+    QString text = tr("Click a drawer in the cabinet");
     for (const CabinetView::GroupLayout &l : m_layouts) {
         for (const Drawer &d : l.drawers) {
             if (d.id == drawerId) {
@@ -43,7 +43,6 @@ void ItemDialog::chooseDrawer(int drawerId)
             }
         }
     }
-    m_picker->setSelectedDrawer(m_drawerId);
     m_drawerText->setText(text);
     updateOk();
 }
@@ -51,7 +50,7 @@ void ItemDialog::chooseDrawer(int drawerId)
 void ItemDialog::updateOk()
 {
     // A name is required, and the drawer when it is being chosen.
-    m_ok->setEnabled(!m_name->text().trimmed().isEmpty() && (!m_picker || m_drawerId != 0));
+    m_ok->setEnabled(!m_name->text().trimmed().isEmpty() && (!m_quantity || m_drawerId != 0));
 }
 
 void ItemDialog::setRestockMode()
@@ -79,7 +78,7 @@ ItemDialog::ItemDialog(const Item &item, const QList<ItemLocation> &occurrences,
 
 void ItemDialog::setup(const Item &item)
 {
-    const bool everyEntry = m_picker == nullptr;
+    const bool everyEntry = m_quantity == nullptr;
     setWindowTitle(everyEntry ? tr("Edit item in every drawer")
                               : (item.id ? tr("Edit item") : tr("New item")));
 
@@ -101,17 +100,8 @@ void ItemDialog::setup(const Item &item)
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     auto *form = new QFormLayout(this);
-    if (m_picker) {
-        // A small view of the cabinet: the drawer is chosen by clicking it.
-        auto *scroll = new QScrollArea;
-        scroll->setWidget(m_picker);
-        scroll->setWidgetResizable(true);
-        scroll->setMinimumSize(380, 190);
-        auto *pick = new QVBoxLayout;
-        pick->addWidget(scroll);
-        pick->addWidget(m_drawerText);
-        form->addRow(tr("Drawer"), pick);
-    }
+    if (m_quantity)
+        form->addRow(tr("Drawer"), m_drawerText);
     form->addRow(tr("Name"), m_name);
     form->addRow(tr("Category"), m_category);
     form->addRow(tr("Value"), m_value);
@@ -159,7 +149,7 @@ QWidget *ItemDialog::buildOccurrences(const QList<ItemLocation> &occurrences)
 Item ItemDialog::item() const
 {
     Item result = m_item;
-    if (m_picker) {
+    if (m_quantity) {
         result.drawerId = m_drawerId;
         result.quantity = m_quantity->value();
     }
@@ -180,4 +170,26 @@ QList<QPair<int, int>> ItemDialog::quantities() const
         result.append({m_occurrenceIds[row], spin->value()});
     }
     return result;
+}
+
+bool ItemDialog::run()
+{
+    static QPointer<ItemDialog> open;
+    if (open) {
+        open->raise();
+        open->activateWindow();
+        return false;
+    }
+    open = this;
+    setModal(false);
+    // Sit over the item dock, leaving the cabinet on the left uncovered.
+    if (QWidget *main = parentWidget() ? parentWidget()->window() : nullptr) {
+        adjustSize();
+        move(main->geometry().right() - width() - 20, main->geometry().top() + 80);
+    }
+    QEventLoop loop;
+    connect(this, &QDialog::finished, &loop, &QEventLoop::quit);
+    show();
+    loop.exec();
+    return result() == QDialog::Accepted;
 }
