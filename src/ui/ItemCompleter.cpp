@@ -5,7 +5,6 @@
 #include <QPainter>
 #include <QStyle>
 #include <QStyledItemDelegate>
-#include <QStyleOptionMenuItem>
 #include <QSet>
 #include <QStandardItemModel>
 #include <algorithm>
@@ -35,8 +34,11 @@ QString identity(const Item &item)
             + item.package).toLower();
 }
 
-// Draws each row like an entry of a drop-down list (the category list), in the current style.
-class MenuItemDelegate : public QStyledItemDelegate
+constexpr int kRadius = 6;
+constexpr int kInset = 5; // Space between the border and the rows.
+
+// A row of the popup: text with a rounded highlight when it is the current one.
+class SuggestionDelegate : public QStyledItemDelegate
 {
 public:
     using QStyledItemDelegate::QStyledItemDelegate;
@@ -44,42 +46,60 @@ public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override
     {
-        const QStyleOptionMenuItem menu = menuOption(option, index);
-        style(option)->drawControl(QStyle::CE_MenuItem, &menu, painter, option.widget);
+        const QRectF row = QRectF(option.rect).adjusted(kInset, 1, -kInset, -1);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+        const bool current = option.state & QStyle::State_Selected;
+        if (current) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(option.palette.color(QPalette::Highlight));
+            painter->drawRoundedRect(row, kRadius - 2, kRadius - 2);
+        }
+        painter->setPen(option.palette.color(current ? QPalette::HighlightedText : QPalette::Text));
+        painter->drawText(row.adjusted(8, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                          index.data(Qt::DisplayRole).toString());
+        painter->restore();
     }
 
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &) const override
     {
-        const QStyleOptionMenuItem menu = menuOption(option, index);
-        return style(option)->sizeFromContents(QStyle::CT_MenuItem, &menu,
-                                               option.fontMetrics.size(Qt::TextSingleLine, menu.text),
-                                               option.widget);
+        return {0, option.fontMetrics.height() + 12};
+    }
+};
+
+// The popup: a rounded panel in the palette's colors with an accent border, like the
+// drop-down of the category list.
+class SuggestionList : public QListView
+{
+public:
+    SuggestionList()
+    {
+        setEditTriggers(QAbstractItemView::NoEditTriggers);
+        setFrameShape(QFrame::NoFrame);
+        setAttribute(Qt::WA_TranslucentBackground);
+        viewport()->setAttribute(Qt::WA_TranslucentBackground);
+        viewport()->setAutoFillBackground(false);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     }
 
-private:
-    static QStyle *style(const QStyleOptionViewItem &option)
+    // The completer replaces the delegate and the window flags when the popup is installed.
+    void finishSetup()
     {
-        return option.widget ? option.widget->style() : QApplication::style();
+        setItemDelegate(new SuggestionDelegate(this));
+        setWindowFlags(windowFlags() | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+        setAttribute(Qt::WA_TranslucentBackground);
     }
 
-    static QStyleOptionMenuItem menuOption(const QStyleOptionViewItem &option,
-                                           const QModelIndex &index)
+protected:
+    void paintEvent(QPaintEvent *event) override
     {
-        QStyleOptionMenuItem menu;
-        menu.palette = option.palette;
-        menu.state = QStyle::State_Enabled;
-        if (option.state & QStyle::State_Selected)
-            menu.state |= QStyle::State_Selected;
-        menu.menuItemType = QStyleOptionMenuItem::Normal;
-        menu.checkType = QStyleOptionMenuItem::NotCheckable;
-        menu.text = index.data(Qt::DisplayRole).toString();
-        menu.font = option.font;
-        menu.fontMetrics = option.fontMetrics;
-        menu.rect = option.rect;
-        menu.menuRect = option.rect;
-        menu.maxIconWidth = 0;
-        menu.reservedShortcutWidth = 0;
-        return menu;
+        QPainter p(viewport());
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(palette().color(QPalette::Highlight), 1));
+        p.setBrush(palette().color(QPalette::Base));
+        p.drawRoundedRect(QRectF(viewport()->rect()).adjusted(0.5, 0.5, -0.5, -0.5), kRadius, kRadius);
+        p.end();
+        QListView::paintEvent(event);
     }
 };
 
@@ -93,11 +113,9 @@ ItemCompleter::ItemCompleter(QObject *parent)
     setCaseSensitivity(Qt::CaseInsensitive);
     setFilterMode(Qt::MatchContains);
     setCompletionMode(QCompleter::PopupCompletion);
-    auto *list = new QListView;
-    list->setItemDelegate(new MenuItemDelegate(list));
-    list->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    list->setFrameStyle(list->style()->styleHint(QStyle::SH_ComboBox_PopupFrameStyle, nullptr, list));
+    auto *list = new SuggestionList;
     setPopup(list);
+    list->finishSetup();
     connect(this, qOverload<const QModelIndex &>(&QCompleter::activated), this,
             [this](const QModelIndex &index) {
                 const int row = index.data(Qt::UserRole).toInt();
