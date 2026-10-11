@@ -39,7 +39,7 @@ void ItemDialog::chooseDrawer(int drawerId)
         for (const Drawer &d : l.drawers) {
             if (d.id == drawerId) {
                 m_drawerId = d.id;
-                text = tr("Drawer: %1 / %2").arg(l.group.name, d.label);
+                text = tr("%1 / %2").arg(l.group.name, d.label);
             }
         }
     }

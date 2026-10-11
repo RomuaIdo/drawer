@@ -268,7 +268,7 @@ private slots:
             QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
                               picker->drawerRect(f.drawer[1].id).center());
             for (QLabel *label : dialog->findChildren<QLabel *>()) {
-                if (label->text().startsWith("Drawer:"))
+                if (label->text().startsWith("G /"))
                     drawerText = label->text();
             }
             dialog->findChild<QSpinBox *>()->setValue(25); // Quantity to add.
@@ -276,7 +276,7 @@ private slots:
         });
         buttonText(&panel, "Add")->click();
 
-        QCOMPARE(drawerText, QString("Drawer: G / R1C2"));
+        QCOMPARE(drawerText, QString("G / R1C2"));
         const QList<Item> inSecond = f.items.inDrawer(f.drawer[1].id);
         QCOMPARE(inSecond.size(), 2); // The nut was there already.
         Item created;

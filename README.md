@@ -4,7 +4,7 @@ Desktop app to organize electronic components and other objects in drawer cabine
 
 - Define cabinets, drawer blocks (e.g. 4x4, 3x3) or single drawers, and drawer sizes.
 - Map items to drawers and export the mapping to CSV.
-- Built-in electronics tools (resistor color code, capacitor markings and values, SMD resistor code including EIA-96, Ohm's law, voltage divider, LED resistor).
+- Built-in electronics tools (resistor color code, capacitor markings and values, SMD resistor code including EIA-96, Ohm's law, voltage divider, LED resistor, and a metric screw reference: nominal diameter, tap drill and clearance holes for cylindrical and countersunk heads for M2 to M4).
 
 ## Build
 

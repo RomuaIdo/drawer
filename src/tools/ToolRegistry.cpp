@@ -5,6 +5,7 @@
 #include "CapacitorWidget.h"
 #include "FormulaWidgets.h"
 #include "ResistorWidget.h"
+#include "ScrewWidget.h"
 
 ToolRegistry ToolRegistry::withDefaultTools()
 {
@@ -20,6 +21,8 @@ ToolRegistry ToolRegistry::withDefaultTools()
     registry.add(std::make_unique<WidgetTool<DividerWidget>>(QObject::tr("Voltage divider"),
                                                               ToolCategory::Auxiliary));
     registry.add(std::make_unique<WidgetTool<LedWidget>>(QObject::tr("LED resistor"),
+                                                              ToolCategory::Auxiliary));
+    registry.add(std::make_unique<WidgetTool<ScrewWidget>>(QObject::tr("Metric screws"),
                                                               ToolCategory::Auxiliary));
     return registry;
 }
