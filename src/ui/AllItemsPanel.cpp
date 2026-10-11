@@ -205,8 +205,8 @@ void AllItemsPanel::addItem()
         return;
     Item item;
     item.drawerId = m_defaultDrawerId ? m_defaultDrawerId : firstDrawerId(m_destinations);
-    ItemDialog dialog(item, m_destinations, this);
-    if (dialog.exec() != QDialog::Accepted)
+    ItemDialog dialog(item, m_destinations, m_pickView, this);
+    if (!dialog.run())
         return;
     try {
         const Item added = m_items.add(dialog.item());
@@ -231,8 +231,8 @@ void AllItemsPanel::editItem()
             return;
 
         if (!m_model->grouped()) {
-            ItemDialog dialog(*first, m_destinations, this);
-            if (dialog.exec() != QDialog::Accepted)
+            ItemDialog dialog(*first, m_destinations, m_pickView, this);
+            if (!dialog.run())
                 return;
             m_items.update(dialog.item());
         } else {

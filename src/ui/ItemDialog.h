@@ -20,15 +20,19 @@ class ItemDialog : public QDialog
     Q_OBJECT
 
 public:
-    // One entry. The drawer is picked by clicking it on a small view of the cabinet
-    // (`drawers`), so editing an item can also move it.
-    ItemDialog(const Item &item, const DrawerLayouts &drawers, QWidget *parent = nullptr);
+    // One entry. The drawer is picked by clicking it on `cabinet`, the cabinet view that is
+    // already open in the main window, so editing an item can also move it.
+    ItemDialog(const Item &item, const DrawerLayouts &drawers, CabinetView *cabinet,
+               QWidget *parent = nullptr);
     // Every entry of an item: the common fields apply to all of them, and a sub-table lists
     // each occurrence with its own editable quantity.
     ItemDialog(const Item &item, const QList<ItemLocation> &occurrences, QWidget *parent = nullptr);
 
     // For items that are about to be restocked: the quantity is how many to add.
     void setRestockMode();
+    // Shows the dialog without blocking the main window (so its cabinet stays clickable) and
+    // waits for it to close. Returns true if accepted; false if cancelled or already open.
+    bool run();
     Item item() const;
     // (item id, quantity) per occurrence; only for the second form.
     QList<QPair<int, int>> quantities() const;
@@ -40,7 +44,7 @@ private:
     QWidget *buildOccurrences(const QList<ItemLocation> &occurrences);
 
     Item m_item;
-    CabinetView *m_picker = nullptr;   // One-entry form only.
+    CabinetView *m_cabinet = nullptr;  // Where the drawer is clicked; one-entry form only.
     QLabel *m_drawerText = nullptr;
     QPushButton *m_ok = nullptr;
     DrawerLayouts m_layouts;

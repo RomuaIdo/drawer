@@ -14,17 +14,30 @@
 #include "data/SqliteItemRepository.h"
 #include "data/SqliteListRepository.h"
 #include "ui/CabinetView.h"
+#include "ui/ItemDialog.h"
 #include "ui/ListModel.h"
 #include "ui/ListPanel.h"
 
 namespace {
+
+// A message box is modal; the item dialog is not, so the cabinet stays clickable.
+QWidget *openDialog()
+{
+    if (QWidget *modal = QApplication::activeModalWidget())
+        return modal;
+    for (QWidget *w : QApplication::topLevelWidgets()) {
+        if (w->isVisible() && qobject_cast<ItemDialog *>(w))
+            return w;
+    }
+    return nullptr;
+}
 
 void onNextDialog(std::function<void(QWidget *)> action)
 {
     auto *timer = new QTimer;
     timer->setInterval(5);
     QObject::connect(timer, &QTimer::timeout, [timer, action] {
-        if (QWidget *dialog = QApplication::activeModalWidget()) {
+        if (QWidget *dialog = openDialog()) {
             timer->stop();
             timer->deleteLater();
             action(dialog);
@@ -239,6 +252,10 @@ private slots:
         Fixture f;
         ListPanel panel(ListKind::Restock, f.lists, f.items);
         panel.setDestinations(f.layouts);
+        CabinetView view;
+        view.setLayouts(f.layouts);
+        view.show();
+        panel.setPickView(&view);
         panel.setDefaultDrawer(f.drawer[0].id);
         panel.show();
         QSignalSpy changed(&panel, &ListPanel::itemsChanged);
@@ -246,8 +263,8 @@ private slots:
         QString drawerText;
         onNextDialog([&](QWidget *dialog) {
             dialog->findChildren<QLineEdit *>()[0]->setText("Zener 5V1");
-            auto *picker = dialog->findChild<CabinetView *>();
-            // Click the second drawer in the dialog's own view of the cabinet.
+            CabinetView *picker = &view;
+            // Click the second drawer on the main cabinet view.
             QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
                               picker->drawerRect(f.drawer[1].id).center());
             for (QLabel *label : dialog->findChildren<QLabel *>()) {
@@ -284,6 +301,10 @@ private slots:
         Fixture f;
         ListPanel panel(ListKind::Restock, f.lists, f.items);
         panel.setDestinations(f.layouts);
+        CabinetView view;
+        view.setLayouts(f.layouts);
+        view.show();
+        panel.setPickView(&view);
         panel.show();
         onNextDialog([](QWidget *dialog) { buttonText(dialog, "Cancel")->click(); });
         buttonText(&panel, "Add")->click();
@@ -295,14 +316,18 @@ private slots:
     {
         Fixture f;
         ListPanel panel(ListKind::Restock, f.lists, f.items);
-        panel.setDestinations(f.layouts); // No default drawer chosen.
+        panel.setDestinations(f.layouts);
+        CabinetView view;
+        view.setLayouts(f.layouts);
+        view.show();
+        panel.setPickView(&view); // No default drawer chosen.
         panel.show();
         bool okAfterNameOnly = true;
         bool okAfterDrawer = false;
         onNextDialog([&](QWidget *dialog) {
             dialog->findChildren<QLineEdit *>()[0]->setText("Thing");
             okAfterNameOnly = buttonText(dialog, "OK")->isEnabled();
-            auto *picker = dialog->findChild<CabinetView *>();
+            CabinetView *picker = &view;
             QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
                               picker->drawerRect(f.drawer[0].id).center());
             okAfterDrawer = buttonText(dialog, "OK")->isEnabled();

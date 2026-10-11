@@ -185,8 +185,8 @@ void ItemPanel::addItem()
 {
     Item item;
     item.drawerId = m_drawerId;
-    ItemDialog dialog(item, m_destinations, this);
-    if (dialog.exec() != QDialog::Accepted)
+    ItemDialog dialog(item, m_destinations, m_pickView, this);
+    if (!dialog.run())
         return;
     try {
         m_items.add(dialog.item());
@@ -203,8 +203,8 @@ void ItemPanel::editItem()
     const QModelIndex index = m_table->currentIndex();
     if (!index.isValid())
         return;
-    ItemDialog dialog(m_model->itemAt(index.row()), m_destinations, this);
-    if (dialog.exec() != QDialog::Accepted)
+    ItemDialog dialog(m_model->itemAt(index.row()), m_destinations, m_pickView, this);
+    if (!dialog.run())
         return;
     try {
         m_items.update(dialog.item());

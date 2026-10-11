@@ -16,6 +16,7 @@
 #include "ui/AllItemsModel.h"
 #include "ui/AllItemsPanel.h"
 #include "ui/CabinetView.h"
+#include "ui/ItemDialog.h"
 
 namespace {
 
@@ -36,12 +37,24 @@ QList<ItemEntry> sampleEntries()
 }
 
 // Runs `action` on the next modal dialog that appears (message boxes, item dialogs).
+// A message box is modal; the item dialog is not, so the cabinet stays clickable.
+QWidget *openDialog()
+{
+    if (QWidget *modal = QApplication::activeModalWidget())
+        return modal;
+    for (QWidget *w : QApplication::topLevelWidgets()) {
+        if (w->isVisible() && qobject_cast<ItemDialog *>(w))
+            return w;
+    }
+    return nullptr;
+}
+
 void onNextDialog(std::function<void(QWidget *)> action)
 {
     auto *timer = new QTimer;
     timer->setInterval(5);
     QObject::connect(timer, &QTimer::timeout, [timer, action] {
-        if (QWidget *dialog = QApplication::activeModalWidget()) {
+        if (QWidget *dialog = openDialog()) {
             timer->stop();
             timer->deleteLater();
             action(dialog);
@@ -203,6 +216,7 @@ private:
         int cabinetId = 0;
         QList<Drawer> drawer;
         std::unique_ptr<AllItemsPanel> panel;
+        CabinetView view; // The main window's cabinet, where drawers are clicked.
         QTableView *table = nullptr;
 
         Fixture()
@@ -221,6 +235,9 @@ private:
             layout.group = drawers.groupsOf(cabinetId).first();
             layout.drawers = drawer;
             panel->setDestinations({layout});
+            view.setLayouts({layout});
+            view.show();
+            panel->setPickView(&view);
             panel->setCabinet(cabinetId);
             panel->show();
             table = panel->findChild<QTableView *>();
@@ -298,7 +315,7 @@ private slots:
         f.panel->setDefaultDrawer(f.drawer[0].id);
         onNextDialog([&](QWidget *dialog) {
             dialog->findChildren<QLineEdit *>()[0]->setText("Bolt");
-            auto *picker = dialog->findChild<CabinetView *>();
+            CabinetView *picker = &f.view;
             QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
                               picker->drawerRect(f.drawer[2].id).center()); // Not the default.
             buttonText(dialog, "OK")->click();
@@ -313,7 +330,7 @@ private slots:
         Fixture f;
         f.table->selectRow(2); // Washer, in the middle drawer.
         onNextDialog([&](QWidget *dialog) {
-            auto *picker = dialog->findChild<CabinetView *>();
+            CabinetView *picker = &f.view;
             QTest::mouseClick(picker, Qt::LeftButton, Qt::NoModifier,
                               picker->drawerRect(f.drawer[2].id).center());
             buttonText(dialog, "OK")->click();
