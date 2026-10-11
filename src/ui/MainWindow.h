@@ -11,6 +11,7 @@
 
 class CabinetView;
 class AllItemsPanel;
+class ItemCompleter;
 class ItemPanel;
 class ListPanel;
 class QComboBox;
@@ -111,6 +112,7 @@ private:
     QTabWidget *m_itemTabs;
     QScrollArea *m_scroll;
     QLineEdit *m_search;
+    ItemCompleter *m_searchSuggestions = nullptr; // Item names offered while searching.
     QComboBox *m_category;
     DrawerLayouts m_layouts; // The drawers of the current cabinet, block by block.
     QHash<int, Drawer> m_drawersById; // Drawers of the current cabinet.

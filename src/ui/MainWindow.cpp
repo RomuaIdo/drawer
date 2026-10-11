@@ -21,6 +21,7 @@
 #include "DrawerDialog.h"
 #include "GroupDialog.h"
 #include "AllItemsPanel.h"
+#include "ItemCompleter.h"
 #include "ItemPanel.h"
 #include "ListPanel.h"
 #include "core/Layout.h"
@@ -180,6 +181,8 @@ void MainWindow::createActions()
                             "as 1uF also finds items written 1u or 1000n."));
     m_search->setClearButtonEnabled(true);
     m_search->setMaximumWidth(260);
+    m_searchSuggestions = new ItemCompleter(this);
+    m_search->setCompleter(m_searchSuggestions);
     bar->addWidget(m_search);
     m_category->setToolTip(tr("Show only items of this category"));
     bar->addWidget(m_category);
@@ -436,7 +439,10 @@ void MainWindow::refreshCategories()
 {
     const QString previous = m_category->currentData().toString();
     QStringList categories;
-    guarded([&] { categories = m_items.categories(); });
+    guarded([&] {
+        categories = m_items.categories();
+        m_searchSuggestions->setItems(m_items.all()); // Changes to items always come through here.
+    });
 
     QSignalBlocker block(m_category);
     m_category->clear();
