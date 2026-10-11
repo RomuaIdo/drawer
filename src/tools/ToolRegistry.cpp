@@ -12,7 +12,7 @@ ToolRegistry ToolRegistry::withDefaultTools()
     ToolRegistry registry;
     registry.add(std::make_unique<WidgetTool<ResistorWidget>>(QObject::tr("Resistor colors"),
                                                               ToolCategory::ComponentReading));
-    registry.add(std::make_unique<WidgetTool<CapacitorWidget>>(QObject::tr("Ceramic capacitors"),
+    registry.add(std::make_unique<WidgetTool<CapacitorWidget>>(QObject::tr("Capacitors"),
                                                               ToolCategory::ComponentReading));
     registry.add(std::make_unique<WidgetTool<SmdWidget>>(QObject::tr("SMD resistors"),
                                                               ToolCategory::ComponentReading));
