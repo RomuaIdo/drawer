@@ -1,5 +1,11 @@
 #include "ItemCompleter.h"
 
+#include <QApplication>
+#include <QListView>
+#include <QPainter>
+#include <QStyle>
+#include <QStyledItemDelegate>
+#include <QStyleOptionMenuItem>
 #include <QSet>
 #include <QStandardItemModel>
 #include <algorithm>
@@ -29,6 +35,54 @@ QString identity(const Item &item)
             + item.package).toLower();
 }
 
+// Draws each row like an entry of a drop-down list (the category list), in the current style.
+class MenuItemDelegate : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override
+    {
+        const QStyleOptionMenuItem menu = menuOption(option, index);
+        style(option)->drawControl(QStyle::CE_MenuItem, &menu, painter, option.widget);
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        const QStyleOptionMenuItem menu = menuOption(option, index);
+        return style(option)->sizeFromContents(QStyle::CT_MenuItem, &menu,
+                                               option.fontMetrics.size(Qt::TextSingleLine, menu.text),
+                                               option.widget);
+    }
+
+private:
+    static QStyle *style(const QStyleOptionViewItem &option)
+    {
+        return option.widget ? option.widget->style() : QApplication::style();
+    }
+
+    static QStyleOptionMenuItem menuOption(const QStyleOptionViewItem &option,
+                                           const QModelIndex &index)
+    {
+        QStyleOptionMenuItem menu;
+        menu.palette = option.palette;
+        menu.state = QStyle::State_Enabled;
+        if (option.state & QStyle::State_Selected)
+            menu.state |= QStyle::State_Selected;
+        menu.menuItemType = QStyleOptionMenuItem::Normal;
+        menu.checkType = QStyleOptionMenuItem::NotCheckable;
+        menu.text = index.data(Qt::DisplayRole).toString();
+        menu.font = option.font;
+        menu.fontMetrics = option.fontMetrics;
+        menu.rect = option.rect;
+        menu.menuRect = option.rect;
+        menu.maxIconWidth = 0;
+        menu.reservedShortcutWidth = 0;
+        return menu;
+    }
+};
+
 } // namespace
 
 ItemCompleter::ItemCompleter(QObject *parent)
@@ -39,6 +93,11 @@ ItemCompleter::ItemCompleter(QObject *parent)
     setCaseSensitivity(Qt::CaseInsensitive);
     setFilterMode(Qt::MatchContains);
     setCompletionMode(QCompleter::PopupCompletion);
+    auto *list = new QListView;
+    list->setItemDelegate(new MenuItemDelegate(list));
+    list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    list->setFrameStyle(list->style()->styleHint(QStyle::SH_ComboBox_PopupFrameStyle, nullptr, list));
+    setPopup(list);
     connect(this, qOverload<const QModelIndex &>(&QCompleter::activated), this,
             [this](const QModelIndex &index) {
                 const int row = index.data(Qt::UserRole).toInt();
