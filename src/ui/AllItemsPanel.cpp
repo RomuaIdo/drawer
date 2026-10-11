@@ -9,6 +9,7 @@
 #include <QTableView>
 #include <QVBoxLayout>
 
+#include "DatabaseGuard.h"
 #include "AllItemsModel.h"
 #include "data/DatabaseError.h"
 
@@ -118,7 +119,7 @@ void AllItemsPanel::setDestinations(const DrawerLayouts &drawers)
 void AllItemsPanel::reload()
 {
     m_table->clearSelection();
-    try {
+    runGuarded(this, [&] {
         QList<ItemEntry> entries = m_cabinetId ? m_items.inCabinet(m_cabinetId) : QList<ItemEntry>();
         if (!m_category.isEmpty()) {
             entries.removeIf([this](const ItemEntry &e) {
@@ -126,9 +127,7 @@ void AllItemsPanel::reload()
             });
         }
         m_model->setEntries(entries);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
-    }
+    });
 }
 
 void AllItemsPanel::reloadKeeping(int itemId)
@@ -206,19 +205,14 @@ void AllItemsPanel::addItem()
     Item item;
     item.drawerId = m_defaultDrawerId ? m_defaultDrawerId : firstDrawerId(m_destinations);
     ItemDialog dialog(item, m_destinations, m_pickView, this);
-    try {
-        dialog.setSuggestions(m_items.all());
-    } catch (const DatabaseError &) {
-    }
+    runGuarded(this, [&] { dialog.setSuggestions(m_items.all()); });
     if (!dialog.run())
         return;
-    try {
-        const Item added = m_items.add(dialog.item());
-        reloadKeeping(added.id);
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] {
+            const Item added = m_items.add(dialog.item());
+            reloadKeeping(added.id);
+        }))
         return;
-    }
     emit itemsChanged(tr("Add item"));
 }
 
@@ -229,27 +223,24 @@ void AllItemsPanel::editItem()
     const QList<int> ids = selectedItemIds();
     if (ids.isEmpty())
         return;
-    try {
-        const auto first = m_items.find(ids.first());
-        if (!first)
-            return;
-
-        if (!m_model->grouped()) {
-            ItemDialog dialog(*first, m_destinations, m_pickView, this);
-            if (!dialog.run())
-                return;
-            m_items.update(dialog.item());
-        } else {
-            ItemDialog dialog(*first, m_items.locationsOf(ids.first()), this);
-            if (dialog.exec() != QDialog::Accepted)
-                return;
-            m_items.updateEntries(dialog.item(), dialog.quantities());
-        }
-        reloadKeeping(ids.first());
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    std::optional<Item> first;
+    if (!runGuarded(this, [&] { first = m_items.find(ids.first()); }) || !first)
         return;
+
+    if (!m_model->grouped()) {
+        ItemDialog dialog(*first, m_destinations, m_pickView, this);
+        if (!dialog.run() || !runGuarded(this, [&] { m_items.update(dialog.item()); }))
+            return;
+    } else {
+        QList<ItemLocation> occurrences;
+        if (!runGuarded(this, [&] { occurrences = m_items.locationsOf(ids.first()); }))
+            return;
+        ItemDialog dialog(*first, occurrences, this);
+        if (dialog.exec() != QDialog::Accepted
+            || !runGuarded(this, [&] { m_items.updateEntries(dialog.item(), dialog.quantities()); }))
+            return;
     }
+    reloadKeeping(ids.first());
     emit itemsChanged(tr("Edit item"));
 }
 
@@ -263,14 +254,12 @@ void AllItemsPanel::removeItems()
         : tr("Remove this item from all %n drawer(s)?", "", ids.size());
     if (QMessageBox::question(this, tr("Remove item"), question) != QMessageBox::Yes)
         return;
-    try {
-        for (int id : ids)
-            m_items.remove(id);
-        reload();
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] {
+            for (int id : ids)
+                m_items.remove(id);
+            reload();
+        }))
         return;
-    }
     emit itemsChanged(tr("Remove item(s)"));
 }
 
@@ -281,12 +270,10 @@ void AllItemsPanel::adjustQuantity(int delta)
     const QList<int> ids = selectedItemIds();
     if (ids.isEmpty())
         return;
-    try {
-        m_items.adjustQuantity(ids, delta);
-        reloadKeeping(ids.first());
-    } catch (const DatabaseError &e) {
-        QMessageBox::critical(this, tr("Database error"), e.what());
+    if (!runGuarded(this, [&] {
+            m_items.adjustQuantity(ids, delta);
+            reloadKeeping(ids.first());
+        }))
         return;
-    }
     emit itemsChanged(tr("Adjust quantity"));
 }
